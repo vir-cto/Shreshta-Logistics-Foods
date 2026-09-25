@@ -168,13 +168,25 @@ import { AuthProvider } from "@/context/AuthContext";
 import { ModuleProvider } from "@/context/ModuleContext";
 import "./globals.css";
 
-export const metadata: Metadata = {
+// export const metadata: Metadata = {
+//   title: {
+//     default: "Sreshta Logistics & Foods",
+//     template: "%s | Sreshta",
+//   },
+//   description:
+//     "Sreshta Logistics and Sreshta Foods — logistics operations and food e-commerce platform.",
+// };
+
+export const metadata = {
+  metadataBase: new URL(
+    process.env.NEXT_PUBLIC_APP_URL || "https://www.sreshtalogistics.com",
+  ),
   title: {
     default: "Sreshta Logistics & Foods",
     template: "%s | Sreshta",
   },
   description:
-    "Sreshta Logistics and Sreshta Foods — logistics operations and food e-commerce platform.",
+    "Sreshta Logistics and Foods — domestic and international shipping, tracking, and quality food products.",
 };
 
 export default function RootLayout({
