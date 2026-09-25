@@ -1400,3 +1400,68 @@ export async function PATCH(request: NextRequest) {
     );
   }
 }
+
+export async function DELETE(request: NextRequest) {
+  try {
+    const user = await getCurrentUser(request);
+    if (!user) {
+      return errorResponse("UNAUTHORIZED", "Authentication is required.", 401);
+    }
+    if (
+      !can(user, "LOGISTICS_AWB_CREATE") &&
+      user.role !== "SUPER_ADMIN" &&
+      user.role !== "ADMIN"
+    ) {
+      return errorResponse(
+        "FORBIDDEN",
+        "You do not have permission to delete senders.",
+        403,
+      );
+    }
+
+    const { searchParams } = new URL(request.url);
+    let senderId = searchParams.get("senderId")?.trim() || "";
+    if (!senderId) {
+      try {
+        const body = await request.json();
+        senderId = String(body?.senderId || body?.id || "").trim();
+      } catch {
+        /* no body */
+      }
+    }
+    if (!senderId) {
+      return errorResponse("SENDER_ID_REQUIRED", "senderId is required.", 400);
+    }
+
+    const ref = adminDb
+      .collection(FIRESTORE_COLLECTIONS.SENDERS)
+      .doc(senderId);
+    const existing = await ref.get();
+    if (!existing.exists) {
+      return errorResponse("SENDER_NOT_FOUND", "Sender was not found.", 404);
+    }
+
+    await ref.delete();
+    await writeAuditLog({
+      userId: user.userId,
+      action: "SENDER_DELETE",
+      module: "LOGISTICS",
+      resourceType: "sender",
+      resourceId: senderId,
+      metadata: { name: existing.data()?.name || null },
+    });
+
+    return successResponse(
+      { senderId, deleted: true },
+      200,
+      "Sender deleted.",
+    );
+  } catch (error) {
+    console.error("DELETE /api/logistics/senders failed", error);
+    return errorResponse(
+      "SENDER_DELETE_FAILED",
+      error instanceof Error ? error.message : "Failed to delete sender.",
+      500,
+    );
+  }
+}

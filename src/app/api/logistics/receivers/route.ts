@@ -1471,3 +1471,76 @@ export async function PATCH(request: NextRequest) {
     );
   }
 }
+
+export async function DELETE(request: NextRequest) {
+  try {
+    const user = await getCurrentUser(request);
+    if (!user) {
+      return errorResponse("UNAUTHORIZED", "Authentication is required.", 401);
+    }
+    if (
+      !can(user, "LOGISTICS_AWB_CREATE") &&
+      user.role !== "SUPER_ADMIN" &&
+      user.role !== "ADMIN"
+    ) {
+      return errorResponse(
+        "FORBIDDEN",
+        "You do not have permission to delete receivers.",
+        403,
+      );
+    }
+
+    const { searchParams } = new URL(request.url);
+    let receiverId = searchParams.get("receiverId")?.trim() || "";
+    if (!receiverId) {
+      try {
+        const body = await request.json();
+        receiverId = String(body?.receiverId || body?.id || "").trim();
+      } catch {
+        /* no body */
+      }
+    }
+    if (!receiverId) {
+      return errorResponse(
+        "RECEIVER_ID_REQUIRED",
+        "receiverId is required.",
+        400,
+      );
+    }
+
+    const ref = adminDb
+      .collection(FIRESTORE_COLLECTIONS.RECEIVERS || "receivers")
+      .doc(receiverId);
+    const existing = await ref.get();
+    if (!existing.exists) {
+      return errorResponse(
+        "RECEIVER_NOT_FOUND",
+        "Receiver was not found.",
+        404,
+      );
+    }
+
+    await ref.delete();
+    await writeAuditLog({
+      userId: user.userId,
+      action: "RECEIVER_DELETE",
+      module: "LOGISTICS",
+      resourceType: "receiver",
+      resourceId: receiverId,
+      metadata: { name: existing.data()?.name || null },
+    });
+
+    return successResponse(
+      { receiverId, deleted: true },
+      200,
+      "Receiver deleted.",
+    );
+  } catch (error) {
+    console.error("DELETE /api/logistics/receivers failed", error);
+    return errorResponse(
+      "RECEIVER_DELETE_FAILED",
+      error instanceof Error ? error.message : "Failed to delete receiver.",
+      500,
+    );
+  }
+}
