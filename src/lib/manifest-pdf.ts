@@ -586,7 +586,8 @@ export async function generateManifestPdf(
       );
       y = totalRowTop - rowH - 14;
 
-      drawText("Total Amount :", col.consignee + 3, y, 9, true);
+      // drawText("Total Amount :", col.consignee + 3, y, 9, true);
+      drawText("Shipment Value :", col.consignee + 3, y, 9, true);
       drawText(formatAmount(totalAmount), col.weight - 10, y, 9, true);
     }
 

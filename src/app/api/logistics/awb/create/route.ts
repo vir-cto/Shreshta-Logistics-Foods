@@ -5900,8 +5900,119 @@ export async function POST(request: NextRequest) {
       updatedAt: now,
     };
 
-    const batch = adminDb.batch();
-    const createdAwbs: string[] = [];
+    // const batch = adminDb.batch();
+    // const createdAwbs: string[] = [];
+
+    // const parentRef = adminDb.collection("awbs").doc(parentAwb);
+    // batch.set(parentRef, {
+    //   ...baseShipment,
+    //   awb: parentAwb,
+    //   awbDocumentId: parentRef.id,
+    //   parentAwb: null,
+    //   isParent: boxesPresent.length > 1,
+    // });
+    // createdAwbs.push(parentAwb);
+
+    // const parentTrackRef = adminDb.collection("trackingEvents").doc();
+    // batch.set(parentTrackRef, {
+    //   trackingEventId: parentTrackRef.id,
+    //   awb: parentAwb,
+    //   trackingStageId,
+    //   status: "BOOKED" as TrackingStatus,
+    //   location: origin,
+    //   remarks: "Shipment booked.",
+    //   eventTime: now,
+    //   createdBy: user.userId,
+    //   createdAt: FieldValue.serverTimestamp(),
+    // });
+
+    // const childAwbs: Array<{ boxNo: string; awb: string }> = [];
+
+    // if (boxesPresent.length > 1) {
+    //   for (const box of boxesPresent) {
+    //     const childAwb = await generateBusinessId("LOGISTICS");
+    //     const childItems = items.filter((i) => i.boxNo === box);
+    //     const childRef = adminDb.collection("awbs").doc(childAwb);
+
+    //     batch.set(childRef, {
+    //       ...baseShipment,
+    //       awb: childAwb,
+    //       awbDocumentId: childRef.id,
+    //       parentAwb,
+    //       boxNo: box,
+    //       isParent: false,
+    //       items: childItems,
+    //       referenceNo: str(body.referenceNo) || parentAwb,
+    //     });
+
+    //     createdAwbs.push(childAwb);
+    //     childAwbs.push({ boxNo: box, awb: childAwb });
+
+    //     const trackRef = adminDb.collection("trackingEvents").doc();
+    //     batch.set(trackRef, {
+    //       trackingEventId: trackRef.id,
+    //       awb: childAwb,
+    //       trackingStageId,
+    //       status: "BOOKED" as TrackingStatus,
+    //       location: origin,
+    //       remarks: `Shipment booked (${box}).`,
+    //       eventTime: now,
+    //       createdBy: user.userId,
+    //       createdAt: FieldValue.serverTimestamp(),
+    //     });
+    //   }
+
+    //   batch.update(parentRef, { childAwbs });
+    // }
+
+    // await batch.commit();
+
+    // await writeAuditLog({
+    //   userId: user.userId,
+    //   action: "AWB_CREATED",
+    //   resourceType: "AWB",
+    //   resourceId: parentAwb,
+    //   module: "LOGISTICS",
+    //   metadata: {
+    //     customerId,
+    //     senderId,
+    //     receiverId,
+    //     senderCreated: senderResult.created,
+    //     receiverCreated: receiverResult.created,
+    //     origin,
+    //     destination,
+    //     destinationCode,
+    //     volumetricDivisor: regionDivisor,
+    //     boxes: boxesPresent,
+    //     childAwbs,
+    //     chargesManagedBySuperAdmin: canManageCharges,
+    //     freightSaved: freight,
+    //     fuelSurchargeSaved: fuelSurcharge,
+    //     createdByRole: user.role,
+    //   },
+    // });
+
+    // return successResponse(
+    //   {
+    //     awb: parentAwb,
+    //     childAwbs,
+    //     senderId,
+    //     receiverId,
+    //     status: "BOOKED",
+    //     trackingEventId: parentTrackRef.id,
+    //     shipment: {
+    //       ...baseShipment,
+    //       awb: parentAwb,
+    //       childAwbs,
+    //     },
+    //   },
+    //   201,
+    //   boxesPresent.length > 1
+    //     ? `AWB created with separate box AWBs (${boxesPresent.join(", ")}).`
+    //     : "AWB created successfully.",
+    // );
+
+        const batch = adminDb.batch();
 
     const parentRef = adminDb.collection("awbs").doc(parentAwb);
     batch.set(parentRef, {
@@ -5909,9 +6020,11 @@ export async function POST(request: NextRequest) {
       awb: parentAwb,
       awbDocumentId: parentRef.id,
       parentAwb: null,
-      isParent: boxesPresent.length > 1,
+      isParent: true,
+      // still store which boxes exist on the single document
+      boxes: boxesPresent,
+      childAwbs: [],
     });
-    createdAwbs.push(parentAwb);
 
     const parentTrackRef = adminDb.collection("trackingEvents").doc();
     batch.set(parentTrackRef, {
@@ -5925,45 +6038,6 @@ export async function POST(request: NextRequest) {
       createdBy: user.userId,
       createdAt: FieldValue.serverTimestamp(),
     });
-
-    const childAwbs: Array<{ boxNo: string; awb: string }> = [];
-
-    if (boxesPresent.length > 1) {
-      for (const box of boxesPresent) {
-        const childAwb = await generateBusinessId("LOGISTICS");
-        const childItems = items.filter((i) => i.boxNo === box);
-        const childRef = adminDb.collection("awbs").doc(childAwb);
-
-        batch.set(childRef, {
-          ...baseShipment,
-          awb: childAwb,
-          awbDocumentId: childRef.id,
-          parentAwb,
-          boxNo: box,
-          isParent: false,
-          items: childItems,
-          referenceNo: str(body.referenceNo) || parentAwb,
-        });
-
-        createdAwbs.push(childAwb);
-        childAwbs.push({ boxNo: box, awb: childAwb });
-
-        const trackRef = adminDb.collection("trackingEvents").doc();
-        batch.set(trackRef, {
-          trackingEventId: trackRef.id,
-          awb: childAwb,
-          trackingStageId,
-          status: "BOOKED" as TrackingStatus,
-          location: origin,
-          remarks: `Shipment booked (${box}).`,
-          eventTime: now,
-          createdBy: user.userId,
-          createdAt: FieldValue.serverTimestamp(),
-        });
-      }
-
-      batch.update(parentRef, { childAwbs });
-    }
 
     await batch.commit();
 
@@ -5984,7 +6058,7 @@ export async function POST(request: NextRequest) {
         destinationCode,
         volumetricDivisor: regionDivisor,
         boxes: boxesPresent,
-        childAwbs,
+        childAwbs: [],
         chargesManagedBySuperAdmin: canManageCharges,
         freightSaved: freight,
         fuelSurchargeSaved: fuelSurcharge,
@@ -5995,7 +6069,7 @@ export async function POST(request: NextRequest) {
     return successResponse(
       {
         awb: parentAwb,
-        childAwbs,
+        childAwbs: [],
         senderId,
         receiverId,
         status: "BOOKED",
@@ -6003,13 +6077,11 @@ export async function POST(request: NextRequest) {
         shipment: {
           ...baseShipment,
           awb: parentAwb,
-          childAwbs,
+          childAwbs: [],
         },
       },
       201,
-      boxesPresent.length > 1
-        ? `AWB created with separate box AWBs (${boxesPresent.join(", ")}).`
-        : "AWB created successfully.",
+      "AWB created successfully.",
     );
   } catch (error) {
     console.error("POST /api/logistics/awb/create:", error);
