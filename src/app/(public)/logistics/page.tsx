@@ -3105,7 +3105,7 @@ export default function LogisticsHomePage() {
 
               <div className="image-card">
                 <img
-                  src="/images/logistics-hero-bg.jpg"
+                  src="/images/sreshta.png"
                   alt="Sreshta logistics transportation"
                 />
               </div>

@@ -211,9 +211,31 @@ export type FoodSettings = {
   enableOrderNotifications: boolean;
   paymentProvider: string;
   enableCashfreePayments: boolean;
+
+  /** Festival / wish floating popup on public food site */
+  popupEnabled: boolean;
+  popupImageUrl: string;
+  popupTitle: string;
+
   updatedAt?: string;
   updatedBy?: string;
+  
 };
+
+// export const DEFAULT_FOOD_SETTINGS: FoodSettings = {
+//   storeName: "Sreshta Foods",
+//   defaultCurrency: "INR",
+//   supportEmail: "",
+//   supportPhone: "",
+//   allowProductVariants: true,
+//   showOutOfStockProducts: false,
+//   allowProductReviews: false,
+//   acceptNewOrders: true,
+//   requirePaymentBeforeProcessing: true,
+//   enableOrderNotifications: true,
+//   paymentProvider: "Cashfree",
+//   enableCashfreePayments: false,
+// };
 
 export const DEFAULT_FOOD_SETTINGS: FoodSettings = {
   storeName: "Sreshta Foods",
@@ -228,6 +250,10 @@ export const DEFAULT_FOOD_SETTINGS: FoodSettings = {
   enableOrderNotifications: true,
   paymentProvider: "Cashfree",
   enableCashfreePayments: false,
+
+  popupEnabled: false,
+  popupImageUrl: "",
+  popupTitle: "",
 };
 
 const SETTINGS_DOC_ID = "food";
@@ -285,6 +311,10 @@ export function normalizeFoodSettings(
         : Boolean(raw.enableCashfreePayments),
     updatedAt: raw.updatedAt ? String(raw.updatedAt) : undefined,
     updatedBy: raw.updatedBy ? String(raw.updatedBy) : undefined,
+
+    popupEnabled: Boolean(raw.popupEnabled),
+    popupImageUrl: String(raw.popupImageUrl || "").trim(),
+    popupTitle: String(raw.popupTitle || "").trim(),
   };
 }
 
