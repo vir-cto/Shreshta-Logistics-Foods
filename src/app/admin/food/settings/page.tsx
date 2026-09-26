@@ -1219,21 +1219,52 @@ export default function FoodSettingsPage() {
         popupImageUrl: settings.popupImageUrl.trim(),
       };
 
+      // const res = await fetch("/api/food/settings", {
+      //   method: "PUT",
+      //   headers: {
+      //     Accept: "application/json",
+      //     "Content-Type": "application/json",
+      //     Authorization: `Bearer ${token}`,
+      //   },
+      //   body: JSON.stringify(payload),
+      // });
+
+      // const json = (await res.json()) as ApiResponse;
+
+      // if (!json.success) {
+      //   throw new Error(
+      //     json.error?.message || "Failed to save food settings.",
+      //   );
+      // }
+
       const res = await fetch("/api/food/settings", {
-        method: "PUT",
+        method: "POST",
         headers: {
           Accept: "application/json",
           "Content-Type": "application/json",
           Authorization: `Bearer ${token}`,
         },
         body: JSON.stringify(payload),
+        cache: "no-store",
       });
 
-      const json = (await res.json()) as ApiResponse;
-
-      if (!json.success) {
+      const text = await res.text();
+      let json: ApiResponse;
+      try {
+        json = JSON.parse(text) as ApiResponse;
+      } catch {
         throw new Error(
-          json.error?.message || "Failed to save food settings.",
+          res.status === 405
+            ? "Save not allowed on server (405). Redeploy the API route."
+            : `Server error (${res.status}). Empty or invalid response.`,
+        );
+      }
+
+      if (!res.ok || !json.success) {
+        throw new Error(
+          !json.success
+            ? json.error?.message || "Failed to save food settings."
+            : `Failed to save food settings (${res.status}).`,
         );
       }
 

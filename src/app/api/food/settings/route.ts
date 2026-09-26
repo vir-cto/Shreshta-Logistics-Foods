@@ -1271,6 +1271,189 @@
 //   }
 // }
 
+// import { NextRequest } from "next/server";
+
+// import { adminDb } from "@/lib/firebase-admin";
+// import { getCurrentUser } from "@/lib/auth";
+// import { can } from "@/lib/permissions";
+// import { writeAuditLog } from "@/lib/audit";
+// import { successResponse, errorResponse } from "@/lib/api-response";
+// import { FIRESTORE_COLLECTIONS } from "@/utils/constants";
+// import { isValidEmail, isValidPhone } from "@/utils/validators";
+// import { toDriveDirectUrl } from "@/utils/drive-url";
+// import {
+//   DEFAULT_FOOD_SETTINGS,
+//   normalizeFoodSettings,
+//   type FoodSettings,
+// } from "@/lib/food-settings";
+
+// const SETTINGS_DOC_ID = "food";
+
+// function settingsRef() {
+//   return adminDb
+//     .collection(FIRESTORE_COLLECTIONS.SETTINGS || "settings")
+//     .doc(SETTINGS_DOC_ID);
+// }
+
+// /**
+//  * Public GET — storefront needs these flags without login.
+//  * No secrets here (Cashfree keys stay in env).
+//  */
+// export async function GET(_request: NextRequest) {
+//   try {
+//     const snapshot = await settingsRef().get();
+
+//     if (!snapshot.exists) {
+//       return successResponse(DEFAULT_FOOD_SETTINGS);
+//     }
+
+//     return successResponse(normalizeFoodSettings(snapshot.data()));
+//   } catch (error) {
+//     console.error("GET /api/food/settings failed", error);
+
+//     return errorResponse(
+//       "FOOD_SETTINGS_LOAD_FAILED",
+//       error instanceof Error
+//         ? error.message
+//         : "Failed to load food settings.",
+//       500,
+//     );
+//   }
+// }
+
+// export async function PUT(request: NextRequest) {
+//   try {
+//     const user = await getCurrentUser(request);
+
+//     if (!user) {
+//       return errorResponse(
+//         "UNAUTHORIZED",
+//         "Authentication is required.",
+//         401,
+//       );
+//     }
+
+//     if (!can(user, "FOOD_SETTINGS")) {
+//       return errorResponse(
+//         "FORBIDDEN",
+//         "You do not have permission to update food settings.",
+//         403,
+//       );
+//     }
+
+//     let body: Partial<FoodSettings>;
+
+//     try {
+//       body = (await request.json()) as Partial<FoodSettings>;
+//     } catch {
+//       return errorResponse(
+//         "INVALID_JSON",
+//         "Invalid JSON request body.",
+//         400,
+//       );
+//     }
+
+//     const storeName = String(body.storeName || "").trim();
+//     const defaultCurrency = String(body.defaultCurrency || "")
+//       .trim()
+//       .toUpperCase();
+//     const supportEmail = String(body.supportEmail || "")
+//       .trim()
+//       .toLowerCase();
+//     const supportPhone = String(body.supportPhone || "").trim();
+
+//     if (!storeName) {
+//       return errorResponse(
+//         "VALIDATION_ERROR",
+//         "Store name is required.",
+//         400,
+//       );
+//     }
+
+//     if (!defaultCurrency) {
+//       return errorResponse(
+//         "VALIDATION_ERROR",
+//         "Default currency is required.",
+//         400,
+//       );
+//     }
+
+//     if (supportEmail && !isValidEmail(supportEmail)) {
+//       return errorResponse(
+//         "VALIDATION_ERROR",
+//         "Please enter a valid support email.",
+//         400,
+//       );
+//     }
+
+//     if (supportPhone && !isValidPhone(supportPhone)) {
+//       return errorResponse(
+//         "VALIDATION_ERROR",
+//         "Please enter a valid support phone number.",
+//         400,
+//       );
+//     }
+
+//     const popupImageRaw = String(body.popupImageUrl ?? "").trim();
+//     const popupImageUrl = popupImageRaw
+//       ? toDriveDirectUrl(popupImageRaw)
+//       : "";
+
+//     const now = new Date().toISOString();
+
+//     const record: FoodSettings = {
+//       storeName,
+//       defaultCurrency,
+//       supportEmail,
+//       supportPhone,
+//       allowProductVariants: Boolean(body.allowProductVariants),
+//       showOutOfStockProducts: Boolean(body.showOutOfStockProducts),
+//       allowProductReviews: Boolean(body.allowProductReviews),
+//       acceptNewOrders: Boolean(body.acceptNewOrders),
+//       requirePaymentBeforeProcessing: Boolean(
+//         body.requirePaymentBeforeProcessing,
+//       ),
+//       enableOrderNotifications: Boolean(body.enableOrderNotifications),
+//       paymentProvider: String(body.paymentProvider || "Cashfree").trim(),
+//       enableCashfreePayments: Boolean(body.enableCashfreePayments),
+//       popupEnabled: Boolean(body.popupEnabled),
+//       popupImageUrl,
+//       popupTitle: String(body.popupTitle || "").trim(),
+//       updatedAt: now,
+//       updatedBy: user.userId,
+//     };
+
+//     await settingsRef().set(record, { merge: true });
+
+//     await writeAuditLog({
+//       userId: user.userId,
+//       action: "FOOD_SETTINGS_UPDATE",
+//       module: "FOOD",
+//       resourceType: "settings",
+//       resourceId: SETTINGS_DOC_ID,
+//       metadata: {
+//         storeName: record.storeName,
+//         acceptNewOrders: record.acceptNewOrders,
+//         enableCashfreePayments: record.enableCashfreePayments,
+//         showOutOfStockProducts: record.showOutOfStockProducts,
+//         popupEnabled: record.popupEnabled,
+//       },
+//     });
+
+//     return successResponse(record, 200, "Food settings saved.");
+//   } catch (error) {
+//     console.error("PUT /api/food/settings failed", error);
+
+//     return errorResponse(
+//       "FOOD_SETTINGS_SAVE_FAILED",
+//       error instanceof Error
+//         ? error.message
+//         : "Failed to save food settings.",
+//       500,
+//     );
+//   }
+// }
+
 import { NextRequest } from "next/server";
 
 import { adminDb } from "@/lib/firebase-admin";
@@ -1286,6 +1469,10 @@ import {
   normalizeFoodSettings,
   type FoodSettings,
 } from "@/lib/food-settings";
+
+export const dynamic = "force-dynamic";
+export const runtime = "nodejs";
+export const revalidate = 0;
 
 const SETTINGS_DOC_ID = "food";
 
@@ -1321,7 +1508,7 @@ export async function GET(_request: NextRequest) {
   }
 }
 
-export async function PUT(request: NextRequest) {
+async function saveFoodSettings(request: NextRequest) {
   try {
     const user = await getCurrentUser(request);
 
@@ -1442,7 +1629,7 @@ export async function PUT(request: NextRequest) {
 
     return successResponse(record, 200, "Food settings saved.");
   } catch (error) {
-    console.error("PUT /api/food/settings failed", error);
+    console.error("saveFoodSettings /api/food/settings failed", error);
 
     return errorResponse(
       "FOOD_SETTINGS_SAVE_FAILED",
@@ -1452,4 +1639,12 @@ export async function PUT(request: NextRequest) {
       500,
     );
   }
+}
+
+export async function PUT(request: NextRequest) {
+  return saveFoodSettings(request);
+}
+
+export async function POST(request: NextRequest) {
+  return saveFoodSettings(request);
 }
