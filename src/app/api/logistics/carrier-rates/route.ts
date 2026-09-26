@@ -640,6 +640,13 @@ function matchCarrierRate(
   return below[0] ?? null;
 }
 
+/** Match "UK EXPRESS", "UKEXPRESS", "uk-express" the same way */
+function normalizeVendorKey(v: unknown): string {
+  return String(v ?? "")
+    .toLowerCase()
+    .replace(/[^a-z0-9]/g, "");
+}
+
 function computeFreightFromRate(
   rate: CarrierRateRecord,
   chargeableWeightKg: number,
@@ -680,15 +687,44 @@ export async function GET(request: NextRequest) {
     const country = searchParams.get("country")?.trim().toLowerCase() || "";
     const enabledOnly = searchParams.get("enabled") === "true";
 
-    const snap = await collectionRef().get();
+    // const snap = await collectionRef().get();
+    // let rows = snap.docs.map((d) => normalize(d.id, d.data()));
+
+    // if (vendor) {
+    //   rows = rows.filter(
+    //     (r) =>
+    //       r.vendorName.toLowerCase().includes(vendor) ||
+    //       r.vendorCode.toLowerCase().includes(vendor),
+    //   );
+    // }
+    // if (country) {
+    //   rows = rows.filter(
+    //     (r) =>
+    //       r.country.toLowerCase().includes(country) ||
+    //       r.countryCode.toLowerCase().includes(country),
+    //   );
+    // }
+    // if (enabledOnly) {
+    //   rows = rows.filter((r) => r.enabled);
+    // }
+
+        const snap = await collectionRef().get();
     let rows = snap.docs.map((d) => normalize(d.id, d.data()));
 
     if (vendor) {
-      rows = rows.filter(
-        (r) =>
+      const vendorNorm = normalizeVendorKey(vendor);
+      rows = rows.filter((r) => {
+        const nameNorm = normalizeVendorKey(r.vendorName);
+        const codeNorm = normalizeVendorKey(r.vendorCode);
+        return (
+          nameNorm.includes(vendorNorm) ||
+          vendorNorm.includes(nameNorm) ||
+          codeNorm.includes(vendorNorm) ||
+          vendorNorm.includes(codeNorm) ||
           r.vendorName.toLowerCase().includes(vendor) ||
-          r.vendorCode.toLowerCase().includes(vendor),
-      );
+          r.vendorCode.toLowerCase().includes(vendor)
+        );
+      });
     }
     if (country) {
       rows = rows.filter(

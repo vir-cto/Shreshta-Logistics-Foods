@@ -766,6 +766,7 @@
 import { FormEvent, useEffect, useMemo, useState } from "react";
 import { useAuth } from "@/context/AuthContext";
 import { formatPhone } from "@/utils/formatters";
+import { Trash2 } from "lucide-react";
 
 type VendorStatus = "ACTIVE" | "INACTIVE";
 
@@ -1195,6 +1196,52 @@ export default function VendorsPage() {
     }
   }
 
+    async function handleDelete(vendor: Vendor) {
+    const ok = window.confirm(
+      `Delete vendor "${vendor.name}"?\nThis cannot be undone.`,
+    );
+    if (!ok) return;
+
+    try {
+      setError(null);
+      setMessage(null);
+
+      if (!firebaseUser) {
+        throw new Error("Authentication is required.");
+      }
+
+      const token = await firebaseUser.getIdToken(true);
+
+      const res = await fetch(
+        `/api/logistics/vendors?id=${encodeURIComponent(vendor.vendorId)}`,
+        {
+          method: "DELETE",
+          headers: {
+            Accept: "application/json",
+            Authorization: `Bearer ${token}`,
+          },
+        },
+      );
+
+      const json = (await res.json()) as ApiResponse;
+
+      if (!res.ok || !json.success) {
+        throw new Error(
+          !json.success
+            ? json.error?.message || "Failed to delete vendor."
+            : "Failed to delete vendor.",
+        );
+      }
+
+      setMessage(`Vendor "${vendor.name}" deleted.`);
+      setReloadKey((value) => value + 1);
+    } catch (e) {
+      setError(
+        e instanceof Error ? e.message : "Failed to delete vendor.",
+      );
+    }
+  }
+
   const inputClass =
     "h-11 w-full rounded-lg border border-slate-300 bg-white px-3 text-sm outline-none focus:border-[#087f87] focus:ring-2 focus:ring-cyan-100";
 
@@ -1367,7 +1414,7 @@ export default function VendorsPage() {
                         {vendor.status}
                       </span>
                     </td>
-                    <td className="px-4 py-3 text-right">
+                    {/* <td className="px-4 py-3 text-right">
                       <div className="flex justify-end gap-2">
                         <button
                           type="button"
@@ -1384,6 +1431,35 @@ export default function VendorsPage() {
                           {vendor.status === "ACTIVE"
                             ? "Deactivate"
                             : "Activate"}
+                        </button>
+                      </div>
+                    </td> */}
+
+                                        <td className="px-4 py-3 text-right">
+                      <div className="flex justify-end gap-2">
+                        <button
+                          type="button"
+                          onClick={() => openEdit(vendor)}
+                          className="rounded-md border border-slate-300 px-3 py-1.5 text-xs font-semibold text-slate-700 hover:bg-slate-50"
+                        >
+                          Edit
+                        </button>
+                        <button
+                          type="button"
+                          onClick={() => toggleStatus(vendor)}
+                          className="rounded-md border border-slate-300 px-3 py-1.5 text-xs font-semibold text-slate-700 hover:bg-slate-50"
+                        >
+                          {vendor.status === "ACTIVE"
+                            ? "Deactivate"
+                            : "Activate"}
+                        </button>
+                        <button
+                          type="button"
+                          onClick={() => handleDelete(vendor)}
+                          title="Delete vendor"
+                          className="inline-flex h-8 w-8 items-center justify-center rounded-md border border-red-200 text-red-600 hover:bg-red-50"
+                        >
+                          <Trash2 className="h-4 w-4" />
                         </button>
                       </div>
                     </td>

@@ -815,3 +815,81 @@ export async function PATCH(request: NextRequest) {
     );
   }
 }
+
+export async function DELETE(request: NextRequest) {
+  try {
+    const user = await getCurrentUser(request);
+
+    if (!user) {
+      return errorResponse(
+        "UNAUTHORIZED",
+        "Authentication is required.",
+        401,
+      );
+    }
+
+    // Same level as update; Super Admin / Admin already have this
+    if (
+      !can(user, "LOGISTICS_AWB_UPDATE") &&
+      !can(user, "LOGISTICS_MASTERS_MANAGE")
+    ) {
+      return errorResponse(
+        "FORBIDDEN",
+        "You do not have permission to delete vendors.",
+        403,
+      );
+    }
+
+    const { searchParams } = new URL(request.url);
+    const vendorId = searchParams.get("id")?.trim() || searchParams.get("vendorId")?.trim();
+
+    if (!vendorId) {
+      return errorResponse(
+        "VENDOR_ID_REQUIRED",
+        "id (or vendorId) query param is required.",
+        400,
+      );
+    }
+
+    const ref = adminDb
+      .collection(FIRESTORE_COLLECTIONS.VENDORS)
+      .doc(vendorId);
+
+    const existing = await ref.get();
+
+    if (!existing.exists) {
+      return errorResponse(
+        "VENDOR_NOT_FOUND",
+        "Vendor was not found.",
+        404,
+      );
+    }
+
+    const data = existing.data() || {};
+    await ref.delete();
+
+    await writeAuditLog({
+      userId: user.userId,
+      action: "VENDOR_DELETE",
+      module: "LOGISTICS",
+      resourceType: "vendor",
+      resourceId: vendorId,
+      metadata: {
+        name: data.name,
+        vendorType: data.vendorType,
+      },
+    });
+
+    return successResponse({ id: vendorId }, 200, "Vendor deleted.");
+  } catch (error) {
+    console.error("DELETE /api/logistics/vendors failed", error);
+
+    return errorResponse(
+      "VENDOR_DELETE_FAILED",
+      error instanceof Error
+        ? error.message
+        : "Failed to delete vendor.",
+      500,
+    );
+  }
+}

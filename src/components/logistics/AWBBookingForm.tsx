@@ -60026,17 +60026,110 @@ useEffect(() => {
       "";
     const vendorKey = cleanVendorKey(rawVendor);
 
-    const countryKey = String(
+    // const countryKey = String(
+    //   data.consignee?.country ||
+    //     data.destination ||
+    //     data.destinationCode ||
+    //     "",
+    // ).trim();
+
+    // const weight = Number(derived.chargeableWeight) || 0;
+
+    // // No pieces / zero chargeable weight → clear freight-based charges
+    // // so Shipment Value (charges grand total) also drops.
+    // if (weight <= 0) {
+    //   setData((prev) => {
+    //     const f = Number(prev.charges.freight) || 0;
+    //     const fuel = Number(prev.charges.fuelSurcharge) || 0;
+    //     const cgst = Number(prev.charges.cgst) || 0;
+    //     const sgst = Number(prev.charges.sgst) || 0;
+    //     const igst = Number(prev.charges.igst) || 0;
+    //     if (f === 0 && fuel === 0 && cgst === 0 && sgst === 0 && igst === 0) {
+    //       return prev;
+    //     }
+    //     return {
+    //       ...prev,
+    //       charges: {
+    //         ...prev.charges,
+    //         freight: 0,
+    //         fuelSurcharge: 0,
+    //         cgst: 0,
+    //         sgst: 0,
+    //         igst: 0,
+    //       },
+    //     };
+    //   });
+    //   return;
+    // }
+
+    // if (!vendorKey || !countryKey) return;
+
+    //   try {
+    //     const headers = await authHeaders();
+    //     const qs = new URLSearchParams({
+    //       vendor: vendorKey,
+    //       country: countryKey,
+    //       enabled: "true",
+    //     });
+
+    //     const res = await fetch(
+    //       `/api/logistics/carrier-rates?${qs.toString()}`,
+    //       {
+    //         method: "GET",
+    //         headers,
+    //         credentials: "include",
+    //         cache: "no-store",
+    //       },
+    //     );
+
+    //     const json = await res.json();
+    //     if (!res.ok || !json?.success || cancelled) return;
+
+    //     const list: CarrierRateRow[] = Array.isArray(json.data)
+    //       ? (json.data as CarrierRateRow[])
+    //       : Array.isArray(json.data?.items)
+    //         ? (json.data.items as CarrierRateRow[])
+    //         : Array.isArray(json.data?.rows)
+    //           ? (json.data.rows as CarrierRateRow[])
+    //           : [];
+
+    //     if (!list.length) return;
+
+    //     const matched = matchCarrierRateClient(list, {
+    //       vendorName: data.vendor || vendorKey,
+    //       vendorCode: selectedVendor?.code || vendorKey,
+    //       country: countryKey,
+    //       weightKg: weight,
+    //     });
+
+    //     if (!matched || cancelled) return;
+
+        const countryRaw = String(
       data.consignee?.country ||
         data.destination ||
         data.destinationCode ||
         "",
     ).trim();
 
+    const countryMaster = countries.find((c) => {
+      const n = String(c.name || "").trim().toUpperCase();
+      const code = String(c.code || "").trim().toUpperCase();
+      const key = countryRaw.toUpperCase();
+      return (
+        n === key ||
+        code === key ||
+        `${n} (${code})` === key ||
+        key.includes(n) ||
+        (code && key.includes(code))
+      );
+    });
+
+    const countryKey = countryRaw;
+    const countryCode = String(countryMaster?.code || "").trim();
+
     const weight = Number(derived.chargeableWeight) || 0;
 
     // No pieces / zero chargeable weight → clear freight-based charges
-    // so Shipment Value (charges grand total) also drops.
     if (weight <= 0) {
       setData((prev) => {
         const f = Number(prev.charges.freight) || 0;
@@ -60064,45 +60157,77 @@ useEffect(() => {
 
     if (!vendorKey || !countryKey) return;
 
-      try {
-        const headers = await authHeaders();
-        const qs = new URLSearchParams({
+    try {
+      const headers = await authHeaders();
+
+      const qs = new URLSearchParams({
+        vendor: vendorKey,
+        enabled: "true",
+      });
+      if (countryCode) qs.set("country", countryCode);
+      else if (countryKey) qs.set("country", countryKey);
+
+      let res = await fetch(`/api/logistics/carrier-rates?${qs.toString()}`, {
+        method: "GET",
+        headers,
+        credentials: "include",
+        cache: "no-store",
+      });
+      let json = await res.json();
+      if (!res.ok || !json?.success || cancelled) return;
+
+      let list: CarrierRateRow[] = Array.isArray(json.data)
+        ? (json.data as CarrierRateRow[])
+        : Array.isArray(json.data?.items)
+          ? (json.data.items as CarrierRateRow[])
+          : Array.isArray(json.data?.rows)
+            ? (json.data.rows as CarrierRateRow[])
+            : [];
+
+      if (!list.length) {
+        const qs2 = new URLSearchParams({
           vendor: vendorKey,
-          country: countryKey,
           enabled: "true",
         });
-
-        const res = await fetch(
-          `/api/logistics/carrier-rates?${qs.toString()}`,
-          {
-            method: "GET",
-            headers,
-            credentials: "include",
-            cache: "no-store",
-          },
-        );
-
-        const json = await res.json();
+        res = await fetch(`/api/logistics/carrier-rates?${qs2.toString()}`, {
+          method: "GET",
+          headers,
+          credentials: "include",
+          cache: "no-store",
+        });
+        json = await res.json();
         if (!res.ok || !json?.success || cancelled) return;
 
-        const list: CarrierRateRow[] = Array.isArray(json.data)
+        list = Array.isArray(json.data)
           ? (json.data as CarrierRateRow[])
           : Array.isArray(json.data?.items)
             ? (json.data.items as CarrierRateRow[])
             : Array.isArray(json.data?.rows)
               ? (json.data.rows as CarrierRateRow[])
               : [];
+      }
 
-        if (!list.length) return;
+      if (!list.length || cancelled) return;
 
-        const matched = matchCarrierRateClient(list, {
+      const matched =
+        matchCarrierRateClient(list, {
           vendorName: data.vendor || vendorKey,
           vendorCode: selectedVendor?.code || vendorKey,
           country: countryKey,
           weightKg: weight,
-        });
+        }) ||
+        (countryCode
+          ? matchCarrierRateClient(list, {
+              vendorName: data.vendor || vendorKey,
+              vendorCode: selectedVendor?.code || vendorKey,
+              country: countryCode,
+              weightKg: weight,
+            })
+          : null);
 
-        if (!matched || cancelled) return;
+      if (!matched || cancelled) return;
+
+      
 
         // const freightBase = computeFreightFromRateClient(matched, weight);
         // if (!Number.isFinite(freightBase) || freightBase < 0) return;
@@ -60257,6 +60382,7 @@ useEffect(() => {
     currencies,
     data.destinationCode,
     derived.chargeableWeight,
+    countries
   ]);
 
     // Keep Shipment Value = charge grand total (current currency)
