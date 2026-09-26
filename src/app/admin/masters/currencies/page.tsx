@@ -2,6 +2,7 @@
 
 import { FormEvent, useEffect, useMemo, useState } from "react";
 import { useAuth } from "@/context/AuthContext";
+import { Pencil, Trash2 } from "lucide-react";
 
 type CurrencyRow = {
   id: string;
@@ -203,6 +204,41 @@ export default function CurrenciesMasterPage() {
     }
   }
 
+    async function handleDelete(row: CurrencyRow) {
+    if (!canManage) return;
+    if (row.isBase) {
+      setError("Cannot delete the base currency. Set another as base first.");
+      return;
+    }
+
+    const ok = window.confirm(
+      `Delete currency "${row.code}" (${row.name})?\nThis cannot be undone.`,
+    );
+    if (!ok) return;
+
+    try {
+      setError(null);
+      setMessage(null);
+      const headers = await authHeaders();
+      const res = await fetch(
+        `/api/logistics/masters/currencies?id=${encodeURIComponent(row.id)}`,
+        {
+          method: "DELETE",
+          headers,
+          credentials: "include",
+        },
+      );
+      const json = await res.json();
+      if (!res.ok || !json.success) {
+        throw new Error(json?.error?.message || "Delete failed");
+      }
+      setMessage(`Currency ${row.code} deleted.`);
+      await load();
+    } catch (err) {
+      setError(err instanceof Error ? err.message : "Delete failed");
+    }
+  }
+
   const inputClass =
     "w-full rounded-lg border border-slate-300 px-3 py-2.5 text-sm outline-none focus:border-[#087f87]";
 
@@ -283,7 +319,7 @@ export default function CurrenciesMasterPage() {
                       {row.enabled ? "ACTIVE" : "INACTIVE"}
                     </span>
                   </td>
-                  <td className="px-4 py-3">
+                  {/* <td className="px-4 py-3">
                     {canManage ? (
                       <div className="flex gap-2">
                         <button
@@ -291,7 +327,7 @@ export default function CurrenciesMasterPage() {
                           onClick={() => openEdit(row)}
                           className="text-xs font-bold text-[#087f87]"
                         >
-                          Edit rate
+                          <Pencil className="h-3.5 w-3.5" />
                         </button>
                         <button
                           type="button"
@@ -299,6 +335,39 @@ export default function CurrenciesMasterPage() {
                           className="text-xs font-bold text-slate-600"
                         >
                           {row.enabled ? "Disable" : "Enable"}
+                        </button>
+                      </div>
+                    ) : (
+                      "—"
+                    )}
+                  </td> */}
+
+                                    <td className="px-4 py-3">
+                    {canManage ? (
+                      <div className="flex items-center gap-2">
+                        <button
+                          type="button"
+                          onClick={() => openEdit(row)}
+                          title="Edit"
+                          className="inline-flex h-8 w-8 items-center justify-center rounded-md border border-slate-300 text-slate-700 hover:bg-slate-50"
+                        >
+                          <Pencil className="h-3.5 w-3.5" />
+                        </button>
+                        <button
+                          type="button"
+                          onClick={() => toggleEnabled(row)}
+                          className="rounded-md border border-slate-300 px-2.5 py-1.5 text-xs font-semibold text-slate-600 hover:bg-slate-50"
+                        >
+                          {row.enabled ? "Disable" : "Enable"}
+                        </button>
+                        <button
+                          type="button"
+                          onClick={() => handleDelete(row)}
+                          title={row.isBase ? "Cannot delete base currency" : "Delete"}
+                          disabled={row.isBase}
+                          className="inline-flex h-8 w-8 items-center justify-center rounded-md border border-red-200 text-red-600 hover:bg-red-50 disabled:cursor-not-allowed disabled:opacity-40"
+                        >
+                          <Trash2 className="h-3.5 w-3.5" />
                         </button>
                       </div>
                     ) : (

@@ -778,3 +778,77 @@ export async function PATCH(request: NextRequest) {
     );
   }
 }
+
+export async function DELETE(request: NextRequest) {
+  try {
+    const user = await getCurrentUser(request);
+
+    if (!user) {
+      return errorResponse(
+        "UNAUTHORIZED",
+        "Authentication is required.",
+        401,
+      );
+    }
+
+    if (
+      !can(user, "LOGISTICS_AWB_UPDATE") &&
+      !can(user, "LOGISTICS_MASTERS_MANAGE")
+    ) {
+      return errorResponse(
+        "FORBIDDEN",
+        "You do not have permission to delete destinations.",
+        403,
+      );
+    }
+
+    const { searchParams } = new URL(request.url);
+    const destinationId =
+      searchParams.get("id")?.trim() ||
+      searchParams.get("destinationId")?.trim();
+
+    if (!destinationId) {
+      return errorResponse(
+        "DESTINATION_ID_REQUIRED",
+        "id (or destinationId) query param is required.",
+        400,
+      );
+    }
+
+    const ref = adminDb
+      .collection(FIRESTORE_COLLECTIONS.DESTINATIONS)
+      .doc(destinationId);
+
+    const existing = await ref.get();
+    if (!existing.exists) {
+      return errorResponse(
+        "DESTINATION_NOT_FOUND",
+        "Destination was not found.",
+        404,
+      );
+    }
+
+    const data = existing.data() || {};
+    await ref.delete();
+
+    await writeAuditLog({
+      userId: user.userId,
+      action: "DESTINATION_DELETE",
+      module: "LOGISTICS",
+      resourceType: "destination",
+      resourceId: destinationId,
+      metadata: { name: data.name, country: data.country },
+    });
+
+    return successResponse({ id: destinationId }, 200, "Destination deleted.");
+  } catch (error) {
+    console.error("DELETE /api/logistics/destinations failed", error);
+    return errorResponse(
+      "DESTINATION_DELETE_FAILED",
+      error instanceof Error
+        ? error.message
+        : "Failed to delete destination.",
+      500,
+    );
+  }
+}

@@ -721,6 +721,7 @@
 
 import { FormEvent, useEffect, useMemo, useState } from "react";
 import { useAuth } from "@/context/AuthContext";
+import { Pencil, Trash2 } from "lucide-react";
 
 type DestinationStatus = "ACTIVE" | "INACTIVE";
 
@@ -1128,6 +1129,50 @@ export default function DestinationsPage() {
     }
   }
 
+    async function handleDelete(destination: Destination) {
+    const ok = window.confirm(
+      `Delete destination "${destination.name}"?\nThis cannot be undone.`,
+    );
+    if (!ok) return;
+
+    try {
+      setError(null);
+      setMessage(null);
+
+      if (!firebaseUser) {
+        throw new Error("Authentication is required.");
+      }
+
+      const token = await firebaseUser.getIdToken(true);
+      const res = await fetch(
+        `/api/logistics/destinations?id=${encodeURIComponent(destination.destinationId)}`,
+        {
+          method: "DELETE",
+          headers: {
+            Accept: "application/json",
+            Authorization: `Bearer ${token}`,
+          },
+        },
+      );
+
+      const json = (await res.json()) as ApiResponse;
+      if (!res.ok || !json.success) {
+        throw new Error(
+          !json.success
+            ? json.error?.message || "Failed to delete destination."
+            : "Failed to delete destination.",
+        );
+      }
+
+      setMessage(`Destination "${destination.name}" deleted.`);
+      setReloadKey((value) => value + 1);
+    } catch (e) {
+      setError(
+        e instanceof Error ? e.message : "Failed to delete destination.",
+      );
+    }
+  }
+
   const inputClass =
     "h-11 w-full rounded-lg border border-slate-300 bg-white px-3 text-sm outline-none focus:border-[#087f87] focus:ring-2 focus:ring-cyan-100";
 
@@ -1291,7 +1336,7 @@ export default function DestinationsPage() {
                         {destination.status}
                       </span>
                     </td>
-                    <td className="px-4 py-3 text-right">
+                    {/* <td className="px-4 py-3 text-right">
                       <div className="flex justify-end gap-2">
                         <button
                           type="button"
@@ -1308,6 +1353,36 @@ export default function DestinationsPage() {
                           {destination.status === "ACTIVE"
                             ? "Deactivate"
                             : "Activate"}
+                        </button>
+                      </div>
+                    </td> */}
+
+                                        <td className="px-4 py-3 text-right">
+                      <div className="flex justify-end gap-2">
+                        <button
+                          type="button"
+                          onClick={() => openEdit(destination)}
+                          title="Edit"
+                          className="inline-flex h-8 w-8 items-center justify-center rounded-md border border-slate-300 text-slate-700 hover:bg-slate-50"
+                        >
+                          <Pencil className="h-3.5 w-3.5" />
+                        </button>
+                        <button
+                          type="button"
+                          onClick={() => toggleStatus(destination)}
+                          className="rounded-md border border-slate-300 px-3 py-1.5 text-xs font-semibold text-slate-700 hover:bg-slate-50"
+                        >
+                          {destination.status === "ACTIVE"
+                            ? "Deactivate"
+                            : "Activate"}
+                        </button>
+                        <button
+                          type="button"
+                          onClick={() => handleDelete(destination)}
+                          title="Delete"
+                          className="inline-flex h-8 w-8 items-center justify-center rounded-md border border-red-200 text-red-600 hover:bg-red-50"
+                        >
+                          <Trash2 className="h-3.5 w-3.5" />
                         </button>
                       </div>
                     </td>

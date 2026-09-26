@@ -543,3 +543,63 @@ export async function PATCH(request: NextRequest) {
     );
   }
 }
+
+export async function DELETE(request: NextRequest) {
+  try {
+    const user = await getCurrentUser(request);
+    if (!user) {
+      return errorResponse("UNAUTHORIZED", "Authentication is required.", 401);
+    }
+    if (
+      !can(user, "LOGISTICS_MASTERS_MANAGE") &&
+      user.role !== "SUPER_ADMIN" &&
+      user.role !== "ADMIN"
+    ) {
+      return errorResponse(
+        "FORBIDDEN",
+        "You do not have permission to delete origins.",
+        403,
+      );
+    }
+
+    const { searchParams } = new URL(request.url);
+    const originId =
+      searchParams.get("id")?.trim() ||
+      searchParams.get("originId")?.trim();
+
+    if (!originId) {
+      return errorResponse(
+        "ORIGIN_ID_REQUIRED",
+        "id (or originId) query param is required.",
+        400,
+      );
+    }
+
+    const ref = col().doc(originId);
+    const existing = await ref.get();
+    if (!existing.exists) {
+      return errorResponse("ORIGIN_NOT_FOUND", "Origin was not found.", 404);
+    }
+
+    const data = existing.data() || {};
+    await ref.delete();
+
+    await writeAuditLog({
+      userId: user.userId,
+      action: "ORIGIN_DELETE",
+      module: "LOGISTICS",
+      resourceType: "origin",
+      resourceId: originId,
+      metadata: { name: data.name, code: data.code },
+    });
+
+    return successResponse({ id: originId }, 200, "Origin deleted.");
+  } catch (error) {
+    console.error("DELETE /api/logistics/origins", error);
+    return errorResponse(
+      "ORIGIN_DELETE_FAILED",
+      error instanceof Error ? error.message : "Failed to delete origin.",
+      500,
+    );
+  }
+}

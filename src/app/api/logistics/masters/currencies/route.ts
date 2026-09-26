@@ -209,3 +209,56 @@ export async function PATCH(request: NextRequest) {
     );
   }
 }
+
+export async function DELETE(request: NextRequest) {
+  try {
+    const user = await getCurrentUser(request);
+    if (!user) {
+      return errorResponse("UNAUTHORIZED", "Authentication is required.", 401);
+    }
+    if (!isAdmin(user.role)) {
+      return errorResponse("FORBIDDEN", "Only admin can manage currencies.", 403);
+    }
+
+    const { searchParams } = new URL(request.url);
+    const id =
+      searchParams.get("id")?.trim() ||
+      searchParams.get("currencyId")?.trim();
+
+    if (!id) {
+      return errorResponse("VALIDATION", "id query param is required.", 400);
+    }
+
+    const ref = adminDb.collection(COLLECTION).doc(id);
+    const snap = await ref.get();
+    if (!snap.exists) {
+      return errorResponse("NOT_FOUND", "Currency not found.", 404);
+    }
+
+    const data = snap.data() || {};
+
+    // Optional safety: block deleting the base currency
+    if (Boolean(data.isBase)) {
+      return errorResponse(
+        "FORBIDDEN",
+        "Cannot delete the base currency. Set another currency as base first.",
+        400,
+      );
+    }
+
+    await ref.delete();
+
+    return successResponse(
+      { id, code: data.code },
+      200,
+      "Currency deleted.",
+    );
+  } catch (error) {
+    console.error("DELETE currencies", error);
+    return errorResponse(
+      "CURRENCY_DELETE_FAILED",
+      error instanceof Error ? error.message : "Failed to delete currency.",
+      500,
+    );
+  }
+}

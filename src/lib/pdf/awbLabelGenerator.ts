@@ -8150,9 +8150,13 @@ function drawSpacedBarcodeText(
 
   const charWidths = chars.map((c) => font.widthOfTextAtSize(c, size));
   const totalCharW = charWidths.reduce((a, b) => a + b, 0);
-  let gap =
+  // let gap =
+  //   chars.length > 1 ? (targetWidth - totalCharW) / (chars.length - 1) : 0;
+  // gap = Math.min(Math.max(gap, 2), 14);
+    let gap =
     chars.length > 1 ? (targetWidth - totalCharW) / (chars.length - 1) : 0;
-  gap = Math.min(Math.max(gap, 2), 14);
+  // Tighter digit spacing (was min 2 / max 14)
+  gap = Math.min(Math.max(gap, 1), 4);
 
   const usedW =
     totalCharW + (chars.length > 1 ? gap * (chars.length - 1) : 0);
@@ -8684,12 +8688,22 @@ export async function generateAwbLabelPdf(
   );
   const bodyW = Math.max(40, drawnW - quietActual * 2);
   // Text closer under bars (was barY - 13 → barY - 8)
-  drawSpacedBarcodeText(
+  // drawSpacedBarcodeText(
+  //   page,
+  //   barcodePayload,
+  //   midX + midW / 2,
+  //   barY - 8,
+  //   bodyW,
+  //   ocrFont,
+  //   11,
+  // );
+
+    drawSpacedBarcodeText(
     page,
     barcodePayload,
     midX + midW / 2,
-    barY - 8,
-    bodyW,
+    barY - 18, // more space under bars (was -8)
+    bodyW * 0.72, // narrower target → less stretch between digits
     ocrFont,
     11,
   );

@@ -945,7 +945,7 @@ export async function generateProformaInvoicePdf(
   /* ================================================================
      CONSIGNEE (left)  |  WEIGHT (right)
      ================================================================ */
-  const consigneeH = 78;
+  const consigneeH = 100;
   const weightW = 140;
   const consigneeW = contentW - weightW;
 
@@ -953,7 +953,7 @@ export async function generateProformaInvoicePdf(
   text("CONSIGNEE :", margin + 4, y - 12, 8, true);
   text(data.consigneeName || "", margin + 4, y - 24, 9, true);
 
-  const consAddrLines = wrapText(data.consigneeAddress || "", 48);
+  const consAddrLines = wrapText(data.consigneeAddress || "", 52);
   consAddrLines.forEach((line, i) => {
     text(line, margin + 4, y - 36 - i * 10, 8);
   });

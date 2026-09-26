@@ -399,3 +399,80 @@ export async function PATCH(request: NextRequest) {
     );
   }
 }
+
+export async function DELETE(request: NextRequest) {
+  try {
+    const user = await getCurrentUser(request);
+
+    if (!user) {
+      return errorResponse(
+        "UNAUTHORIZED",
+        "Authentication is required.",
+        401,
+      );
+    }
+
+    if (
+      !can(user, "LOGISTICS_AWB_UPDATE") &&
+      !can(user, "LOGISTICS_MASTERS_MANAGE")
+    ) {
+      return errorResponse(
+        "FORBIDDEN",
+        "You do not have permission to delete services.",
+        403,
+      );
+    }
+
+    const { searchParams } = new URL(request.url);
+    const serviceId =
+      searchParams.get("id")?.trim() ||
+      searchParams.get("serviceId")?.trim();
+
+    if (!serviceId) {
+      return errorResponse(
+        "SERVICE_ID_REQUIRED",
+        "id (or serviceId) query param is required.",
+        400,
+      );
+    }
+
+    const ref = adminDb
+      .collection(FIRESTORE_COLLECTIONS.SERVICES)
+      .doc(serviceId);
+
+    const existing = await ref.get();
+    if (!existing.exists) {
+      return errorResponse(
+        "SERVICE_NOT_FOUND",
+        "Service was not found.",
+        404,
+      );
+    }
+
+    const data = existing.data() || {};
+    await ref.delete();
+
+    await writeAuditLog({
+      userId: user.userId,
+      action: "SERVICE_DELETE",
+      module: "LOGISTICS",
+      resourceType: "service",
+      resourceId: serviceId,
+      metadata: {
+        name: data.name,
+        type: data.type,
+      },
+    });
+
+    return successResponse({ id: serviceId }, 200, "Service deleted.");
+  } catch (error) {
+    console.error("DELETE /api/logistics/services failed", error);
+    return errorResponse(
+      "SERVICE_DELETE_FAILED",
+      error instanceof Error
+        ? error.message
+        : "Failed to delete service.",
+      500,
+    );
+  }
+}

@@ -3714,7 +3714,7 @@
 "use client";
 
 import { FormEvent, useEffect, useMemo, useState } from "react";
-import { ArrowDown, ArrowUp, ArrowUpDown, Trash2 } from "lucide-react";
+import { ArrowDown, ArrowUp, ArrowUpDown, Trash2, Pencil } from "lucide-react";
 import { useAuth } from "@/context/AuthContext";
 import { formatPhone } from "@/utils/formatters";
 
@@ -4486,7 +4486,7 @@ export default function ReceiversPage() {
                           onClick={() => openEdit(row)}
                           className="rounded-md border border-slate-300 px-3 py-1.5 text-xs font-semibold text-slate-700 hover:bg-slate-50"
                         >
-                          Edit
+                          <Pencil className="h-3.5 w-3.5" />
                         </button>
                         <button
                           type="button"
