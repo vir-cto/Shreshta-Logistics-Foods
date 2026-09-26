@@ -6130,9 +6130,1286 @@
 //   );
 // }
 
+// import Link from "next/link";
+// import { notFound } from "next/navigation";
+// import { formatDate, formatDateTime } from "@/utils/formatters";
+
+// export const dynamic = "force-dynamic";
+
+// type TrackingDetailPageProps = {
+//   params: {
+//     awb: string;
+//   };
+// };
+
+// type RawTrackingEvent = {
+//   id?: string;
+//   status?: string;
+//   location?: string;
+//   description?: string;
+//   remarks?: string;
+//   timestamp?: string;
+//   eventTime?: string;
+//   createdAt?: string;
+// };
+
+// type PublicEvent = {
+//   id: string;
+//   status: string;
+//   title: string;
+//   location: string;
+//   description: string;
+//   timestamp: string;
+//   active: boolean;
+//   completed: boolean;
+// };
+
+// type PublicShipment = {
+//   awb: string;
+//   currentStatus: string;
+//   origin: string;
+//   destination: string;
+//   consigneeName?: string;
+//   forwardingNumber?: string;
+//   shipmentDate?: string;
+//   latestLocation?: string;
+//   serviceType?: string;
+// };
+
+// const FALLBACK_PIPELINE: Array<{ code: string; label: string }> = [
+//   { code: "BOOKED", label: "Booked" },
+//   { code: "PICKED_UP", label: "Picked Up" },
+//   { code: "IN_TRANSIT", label: "In Transit" },
+//   { code: "OUT_FOR_DELIVERY", label: "Out For Delivery" },
+//   { code: "DELIVERED", label: "Delivered" },
+// ];
+
+// const EXCEPTION_CODES = ["ON_HOLD", "EXCEPTION", "CANCELLED"] as const;
+
+// const STATUS_ALIASES: Record<string, string[]> = {
+//   BOOKED: ["BOOKED", "BOOKING_CONFIRMED"],
+//   BOOKING_CONFIRMED: ["BOOKED", "BOOKING_CONFIRMED"],
+//   PICKUP_REQUESTED: ["PICKUP_REQUESTED"],
+//   PICKED_UP: ["PICKED_UP", "SHIPMENT_RECEIVED"],
+//   SHIPMENT_RECEIVED: ["PICKED_UP", "SHIPMENT_RECEIVED"],
+//   AT_ORIGIN: ["AT_ORIGIN"],
+//   HANDLING_IN_PROGRESS: ["HANDLING_IN_PROGRESS"],
+//   PROCESSED_AND_PACKED: ["PROCESSED_AND_PACKED"],
+//   SHIPPING_LABEL_GENERATED: ["SHIPPING_LABEL_GENERATED"],
+//   FORWARDED_TO_AIRPORT: ["FORWARDED_TO_AIRPORT", "IN_TRANSIT"],
+//   IN_TRANSIT: ["IN_TRANSIT", "FORWARDED_TO_AIRPORT"],
+//   ARRIVED_DESTINATION: ["ARRIVED_DESTINATION"],
+//   OUT_FOR_DELIVERY: ["OUT_FOR_DELIVERY"],
+//   DELIVERED: ["DELIVERED"],
+//   ON_HOLD: ["ON_HOLD"],
+//   EXCEPTION: ["EXCEPTION"],
+//   CANCELLED: ["CANCELLED"],
+// };
+
+// function formatAwb(awb: string) {
+//   try {
+//     return decodeURIComponent(awb).trim().toUpperCase();
+//   } catch {
+//     return awb.trim().toUpperCase();
+//   }
+// }
+
+// function humanLabel(code: string, fallback?: string): string {
+//   if (fallback?.trim()) return fallback.trim();
+//   return code
+//     .toLowerCase()
+//     .split("_")
+//     .map((part) => part.charAt(0).toUpperCase() + part.slice(1))
+//     .join(" ");
+// }
+
+// function defaultDescription(code: string, title: string): string {
+//   const map: Record<string, string> = {
+//     BOOKED: "Shipment booking has been registered successfully.",
+//     BOOKING_CONFIRMED: "Shipment booking has been registered successfully.",
+//     PICKUP_REQUESTED: "Pickup has been requested from the shipper.",
+//     PICKED_UP: "Shipment has been collected from the shipper.",
+//     SHIPMENT_RECEIVED: "Shipment has been received at the facility.",
+//     AT_ORIGIN: "Shipment has reached the origin processing facility.",
+//     HANDLING_IN_PROGRESS: "Shipment handling is in progress.",
+//     PROCESSED_AND_PACKED: "Shipment has been processed and packed for export.",
+//     SHIPPING_LABEL_GENERATED: "Shipping label has been generated.",
+//     FORWARDED_TO_AIRPORT: "Shipment has been forwarded to the airport.",
+//     IN_TRANSIT: "Shipment is in transit toward the destination.",
+//     ARRIVED_DESTINATION: "Shipment has arrived at the destination facility.",
+//     OUT_FOR_DELIVERY: "Shipment is out for delivery.",
+//     DELIVERED: "Shipment has been delivered successfully.",
+//     ON_HOLD: "Shipment is currently on hold.",
+//     EXCEPTION: "An exception was recorded for this shipment.",
+//     CANCELLED: "This shipment has been cancelled.",
+//   };
+//   return map[code] || `Shipment status updated to ${title}.`;
+// }
+
+// function eventTimeMs(e: RawTrackingEvent): number {
+//   const raw = e.timestamp || e.eventTime || e.createdAt || "";
+//   const t = new Date(String(raw)).getTime();
+//   return Number.isFinite(t) ? t : 0;
+// }
+
+// function eventTimeRaw(e: RawTrackingEvent | undefined): string {
+//   if (!e) return "";
+//   return String(e.timestamp || e.eventTime || e.createdAt || "").trim();
+// }
+
+// function buildPipeline(
+//   stages: Array<{ code: string; label: string }>,
+//   eventCodes: string[],
+//   currentStatus: string,
+// ): Array<{ code: string; label: string }> {
+//   const base =
+//     stages.length > 0
+//       ? stages.map((s) => ({
+//           code: String(s.code).toUpperCase(),
+//           label: s.label || humanLabel(s.code),
+//         }))
+//       : FALLBACK_PIPELINE.map((s) => ({ ...s }));
+
+//   const seen = new Set(base.map((s) => s.code));
+
+//   for (const code of EXCEPTION_CODES) {
+//     if (
+//       (eventCodes.includes(code) || currentStatus === code) &&
+//       !seen.has(code)
+//     ) {
+//       base.push({ code, label: humanLabel(code) });
+//       seen.add(code);
+//     }
+//   }
+
+//   return base;
+// }
+
+// function resolveStageIndex(
+//   pipeline: Array<{ code: string }>,
+//   status: string,
+// ): number {
+//   const code = status.toUpperCase();
+
+//   let idx = pipeline.findIndex((p) => p.code === code);
+//   if (idx >= 0) return idx;
+
+//   const aliases = STATUS_ALIASES[code] || [code];
+//   for (const alias of aliases) {
+//     idx = pipeline.findIndex((p) => p.code === alias);
+//     if (idx >= 0) return idx;
+//   }
+
+//   idx = pipeline.findIndex(
+//     (p) => code.includes(p.code) || p.code.includes(code),
+//   );
+//   return idx;
+// }
+
+// async function loadTracking(awb: string): Promise<{
+//   shipment: PublicShipment | null;
+//   events: PublicEvent[];
+//   error: string | null;
+// }> {
+//   try {
+//     const { adminDb } = await import("@/lib/firebase-admin");
+//     const { getTrackingEvents, getTrackingStages } = await import(
+//       "@/lib/tracking"
+//     );
+
+//     const snap = await adminDb
+//       .collection("awbs")
+//       .where("awb", "==", awb)
+//       .limit(1)
+//       .get();
+
+//     let data: FirebaseFirestore.DocumentData | null = null;
+
+//     if (!snap.empty) {
+//       data = snap.docs[0]!.data();
+//     } else {
+//       const byId = await adminDb.collection("awbs").doc(awb).get();
+//       if (byId.exists) data = byId.data() || null;
+//     }
+
+//     if (!data) {
+//       return {
+//         shipment: null,
+//         events: [],
+//         error: "Shipment was not found for this AWB.",
+//       };
+//     }
+
+//     const [rawEventsIn, stages] = await Promise.all([
+//       getTrackingEvents(awb),
+//       getTrackingStages("LOGISTICS"),
+//     ]);
+
+//     const rawEvents: RawTrackingEvent[] = (rawEventsIn || []).map(
+//       (e: Record<string, unknown>) => ({
+//         id: e.id ? String(e.id) : undefined,
+//         status: e.status ? String(e.status) : undefined,
+//         location: e.location ? String(e.location) : undefined,
+//         description: e.description
+//           ? String(e.description)
+//           : e.remarks
+//             ? String(e.remarks)
+//             : undefined,
+//         remarks: e.remarks ? String(e.remarks) : undefined,
+//         timestamp: e.timestamp ? String(e.timestamp) : undefined,
+//         eventTime: e.eventTime ? String(e.eventTime) : undefined,
+//         createdAt: e.createdAt ? String(e.createdAt) : undefined,
+//       }),
+//     );
+
+//     // Oldest → newest; FIRST event per status keeps original scan time
+//     const sortedRaw = [...rawEvents].sort(
+//       (a, b) => eventTimeMs(a) - eventTimeMs(b),
+//     );
+
+//     const eventByStatus = new Map<string, RawTrackingEvent>();
+//     for (const e of sortedRaw) {
+//       const code = String(e.status || "")
+//         .trim()
+//         .toUpperCase();
+//       if (!code) continue;
+//       if (!eventByStatus.has(code)) {
+//         eventByStatus.set(code, e);
+//       }
+//     }
+
+//     /** Exact status only — never borrow another stage's timestamp */
+//     function eventForStage(stageCode: string): RawTrackingEvent | undefined {
+//       return eventByStatus.get(stageCode.toUpperCase());
+//     }
+
+//     const currentStatus = String(
+//       data.currentStatus ||
+//         sortedRaw[sortedRaw.length - 1]?.status ||
+//         "BOOKED",
+//     ).toUpperCase();
+
+//     const consignee =
+//       (data.consignee && typeof data.consignee === "object"
+//         ? (data.consignee as Record<string, unknown>)
+//         : null) ||
+//       (data.receiver && typeof data.receiver === "object"
+//         ? (data.receiver as Record<string, unknown>)
+//         : null) ||
+//       {};
+
+//     const consigneeName = String(
+//       consignee.name ||
+//         consignee.companyName ||
+//         data.consigneeName ||
+//         data.receiverName ||
+//         "",
+//     ).trim();
+
+//     const forwardingNumber = String(
+//       data.forwardingNumber || data.forwardingNo || data.trackingNo || "",
+//     ).trim();
+
+//     const shipment: PublicShipment = {
+//       awb: String(data.awb || awb),
+//       currentStatus,
+//       origin: String(data.origin || "—"),
+//       destination: String(data.destination || "—"),
+//       consigneeName: consigneeName || "—",
+//       forwardingNumber: forwardingNumber || "—",
+//       shipmentDate: data.shipmentDate
+//         ? String(data.shipmentDate)
+//         : data.bookDate
+//           ? String(data.bookDate)
+//           : undefined,
+//       latestLocation: data.latestLocation
+//         ? String(data.latestLocation)
+//         : sortedRaw[sortedRaw.length - 1]?.location,
+//       serviceType: data.serviceType
+//         ? String(data.serviceType)
+//         : data.service
+//           ? String(data.service)
+//           : undefined,
+//     };
+
+//     const eventCodes = sortedRaw.map((e) =>
+//       String(e.status || "")
+//         .trim()
+//         .toUpperCase(),
+//     );
+
+//     const pipeline = buildPipeline(
+//       stages.map((s) => ({
+//         code: String(s.code).toUpperCase(),
+//         label: s.label || humanLabel(s.code),
+//       })),
+//       eventCodes,
+//       currentStatus,
+//     );
+
+//     const currentIndex = resolveStageIndex(pipeline, currentStatus);
+
+//     const events: PublicEvent[] = pipeline.map((stage, index) => {
+//       const event = eventForStage(stage.code);
+
+//       const completed =
+//         currentIndex >= 0
+//           ? index <= currentIndex
+//           : Boolean(event) || eventCodes.includes(stage.code);
+
+//       const title = humanLabel(stage.code, stage.label);
+//       const location =
+//         event?.location ||
+//         (completed && index === 0 ? shipment.origin : undefined) ||
+//         "—";
+
+//       const rawTs = eventTimeRaw(event);
+
+//       return {
+//         id: event?.id || `stage-${stage.code}`,
+//         status: stage.code,
+//         title,
+//         location,
+//         description:
+//           event?.description ||
+//           event?.remarks ||
+//           defaultDescription(stage.code, title),
+//         timestamp: rawTs ? formatDateTime(rawTs) : "",
+//         active: completed,
+//         completed,
+//       };
+//     });
+
+//     return { shipment, events, error: null };
+//   } catch (err) {
+//     console.error("Public tracking load failed:", err);
+//     return {
+//       shipment: null,
+//       events: [],
+//       error:
+//         "Unable to load tracking information right now. Please try again later.",
+//     };
+//   }
+// }
+
+// export default async function TrackingDetailPage({
+//   params,
+// }: TrackingDetailPageProps) {
+//   const awb = formatAwb(params.awb);
+
+//   if (!awb) {
+//     notFound();
+//   }
+
+//   const { shipment, events, error } = await loadTracking(awb);
+
+//   if (error || !shipment) {
+//     return (
+//       <>
+//         <header className="site-header">
+//           <div className="container-site header-inner">
+//             <Link href="/logistics">
+//               <img
+//                 src="/images/sreshta-logistics-logo.png"
+//                 alt="Sreshta Logistics"
+//                 className="header-logo"
+//               />
+//             </Link>
+//             <nav className="desktop-nav">
+//               <Link href="/logistics">Home</Link>
+//               <Link href="/logistics/services">Services</Link>
+//               <Link href="/logistics/international">International</Link>
+//               <Link href="/logistics/domestic">Domestic</Link>
+//               <Link href="/logistics/cargo-freight">Cargo & Freight</Link>
+//               <Link href="/logistics/about">About</Link>
+//               <Link href="/logistics/contact">Contact</Link>
+//             </nav>
+//             <div className="header-actions">
+//               <Link href="/logistics/track" className="btn-secondary">
+//                 Track Another
+//               </Link>
+//               <Link href="/logistics/book-freight" className="btn-primary">
+//                 Book Freight
+//               </Link>
+//             </div>
+//           </div>
+//         </header>
+
+//         <main>
+//           <section className="page-hero">
+//             <div className="container-site">
+//               <span className="section-label" style={{ color: "#78e1e4" }}>
+//                 Shipment Tracking
+//               </span>
+//               <h1>Shipment {awb}</h1>
+//               <p>
+//                 {error ||
+//                   "No public tracking information is available for this AWB."}
+//               </p>
+//             </div>
+//           </section>
+
+//           <section className="section">
+//             <div className="container-site" style={{ textAlign: "center" }}>
+//               <div
+//                 className="form-shell"
+//                 style={{ padding: 32, maxWidth: 560, margin: "0 auto" }}
+//               >
+//                 <h2 className="section-title" style={{ fontSize: "1.5rem" }}>
+//                   Shipment not found
+//                 </h2>
+//                 <p className="section-description">
+//                   Please check the AWB number and try again. If you believe
+//                   this is an error, contact support.
+//                 </p>
+//                 <div
+//                   style={{
+//                     marginTop: 24,
+//                     display: "flex",
+//                     gap: 12,
+//                     justifyContent: "center",
+//                     flexWrap: "wrap",
+//                   }}
+//                 >
+//                   <Link href="/logistics/track" className="btn-primary">
+//                     Track Another
+//                   </Link>
+//                   <Link href="/logistics/contact" className="btn-secondary">
+//                     Contact Support
+//                   </Link>
+//                 </div>
+//               </div>
+//             </div>
+//           </section>
+//         </main>
+//       </>
+//     );
+//   }
+
+//   const currentLabel = humanLabel(shipment.currentStatus);
+//   const latestLocation =
+//     shipment.latestLocation ||
+//     events.filter((e) => e.completed).at(-1)?.location ||
+//     "—";
+
+//   const visibleEvents = events.filter((e) => e.completed || e.active);
+//   const completedCount = visibleEvents.length;
+//   const progressHeight = completedCount <= 1 ? 0 : 100;
+
+//   return (
+//     <>
+//       <header className="site-header">
+//         <div className="container-site header-inner">
+//           <Link href="/logistics">
+//             <img
+//               src="/images/sreshta-logistics-logo.png"
+//               alt="Sreshta Logistics"
+//               className="header-logo"
+//             />
+//           </Link>
+//           <nav className="desktop-nav">
+//             <Link href="/logistics">Home</Link>
+//             <Link href="/logistics/services">Services</Link>
+//             <Link href="/logistics/international">International</Link>
+//             <Link href="/logistics/domestic">Domestic</Link>
+//             <Link href="/logistics/cargo-freight">Cargo & Freight</Link>
+//             <Link href="/logistics/about">About</Link>
+//             <Link href="/logistics/contact">Contact</Link>
+//           </nav>
+//           <div className="header-actions">
+//             <Link href="/logistics/track" className="btn-secondary">
+//               Track Another
+//             </Link>
+//             <Link href="/logistics/book-freight" className="btn-primary">
+//               Book Freight
+//             </Link>
+//           </div>
+//         </div>
+//       </header>
+
+//       <main>
+//         <section className="page-hero">
+//           <div className="container-site">
+//             <span className="section-label" style={{ color: "#78e1e4" }}>
+//               Shipment Tracking
+//             </span>
+//             <h1>Shipment {shipment.awb}</h1>
+//             <p>
+//               Follow the current shipment status and public tracking timeline
+//               below.
+//             </p>
+//           </div>
+//         </section>
+
+//         <section className="section">
+//           <div className="container-site">
+//             <div className="tracking-summary">
+//               <div className="summary-box">
+//                 <span>AWB</span>
+//                 <strong>{shipment.awb}</strong>
+//               </div>
+//               <div className="summary-box">
+//                 <span>Current Status</span>
+//                 <strong style={{ color: "var(--logistics-teal-dark)" }}>
+//                   {currentLabel}
+//                 </strong>
+//               </div>
+//               <div className="summary-box">
+//                 <span>Origin</span>
+//                 <strong>{shipment.origin}</strong>
+//               </div>
+//               <div className="summary-box">
+//                 <span>Destination</span>
+//                 <strong>{shipment.destination}</strong>
+//               </div>
+//               <div className="summary-box">
+//                 <span>Consignee</span>
+//                 <strong>{shipment.consigneeName || "—"}</strong>
+//               </div>
+//               <div className="summary-box">
+//                 <span>Forwarding Number</span>
+//                 <strong>{shipment.forwardingNumber || "—"}</strong>
+//               </div>
+//             </div>
+
+//             <div className="split-grid">
+//               <div>
+//                 <span className="section-label">Tracking Timeline</span>
+//                 <h2 className="section-title" style={{ fontSize: "2rem" }}>
+//                   Shipment Journey
+//                 </h2>
+//                 <p className="section-description">
+//                   Stages match the active configuration from Tracking Matrix →
+//                   Configure stages.
+//                 </p>
+
+//                 {visibleEvents.length === 0 ? (
+//                   <div className="notice" style={{ marginTop: 35 }}>
+//                     No tracking updates yet for this AWB.
+//                   </div>
+//                 ) : (
+//                   <div className="timeline" style={{ marginTop: 35 }}>
+//                     <div
+//                       className="timeline-progress"
+//                       style={{ height: `${progressHeight}%` }}
+//                       aria-hidden
+//                     />
+//                     {visibleEvents.map((event) => (
+//                       <div
+//                         className={`timeline-item ${
+//                           event.completed ? "active" : ""
+//                         }`}
+//                         key={event.id}
+//                       >
+//                         <span className="timeline-dot" />
+//                         <div className="timeline-content">
+//                           <div
+//                             style={{
+//                               display: "flex",
+//                               justifyContent: "space-between",
+//                               gap: 15,
+//                               flexWrap: "wrap",
+//                             }}
+//                           >
+//                             <h3
+//                               style={{
+//                                 margin: 0,
+//                                 fontWeight: 750,
+//                                 color: event.completed
+//                                   ? "var(--logistics-teal-dark, #0b7a78)"
+//                                   : "#0f172a",
+//                               }}
+//                             >
+//                               {event.title}
+//                             </h3>
+//                             <span
+//                               style={{
+//                                 color: event.completed
+//                                   ? "var(--logistics-teal-dark, #0b7a78)"
+//                                   : "#0f172a",
+//                                 fontSize: ".7rem",
+//                                 fontWeight: 800,
+//                               }}
+//                             >
+//                               {event.status}
+//                             </span>
+//                           </div>
+//                           <p>{event.description}</p>
+//                           <p style={{ marginTop: 9 }}>
+//                             <strong>{event.location}</strong>
+//                             {event.timestamp &&
+//                             event.timestamp !== "—" &&
+//                             event.timestamp !== "Pending"
+//                               ? ` · ${event.timestamp}`
+//                               : null}
+//                           </p>
+//                         </div>
+//                       </div>
+//                     ))}
+//                   </div>
+//                 )}
+//               </div>
+
+//               <div>
+//                 <div className="form-shell" style={{ padding: 24 }}>
+//                   <span className="section-label">Shipment Details</span>
+//                   <div style={{ display: "grid", gap: 18, marginTop: 15 }}>
+//                     <div>
+//                       <span className="form-label">Shipment Date</span>
+//                       <p style={{ margin: "4px 0 0", color: "#64748b" }}>
+//                         {shipment.shipmentDate
+//                           ? formatDate(shipment.shipmentDate)
+//                           : "—"}
+//                       </p>
+//                     </div>
+//                     <div>
+//                       <span className="form-label">Latest Location</span>
+//                       <p style={{ margin: "4px 0 0", color: "#64748b" }}>
+//                         {latestLocation}
+//                       </p>
+//                     </div>
+//                     <div>
+//                       <span className="form-label">Service</span>
+//                       <p style={{ margin: "4px 0 0", color: "#64748b" }}>
+//                         {shipment.serviceType
+//                           ? humanLabel(shipment.serviceType)
+//                           : "—"}
+//                       </p>
+//                     </div>
+//                     <div>
+//                       <span className="form-label">Current Status</span>
+//                       <p
+//                         style={{
+//                           margin: "4px 0 0",
+//                           color: "var(--logistics-teal-dark)",
+//                           fontWeight: 750,
+//                         }}
+//                       >
+//                         {currentLabel}
+//                       </p>
+//                     </div>
+//                   </div>
+//                 </div>
+
+//                 <div className="service-card" style={{ marginTop: 18 }}>
+//                   <div className="service-icon">?</div>
+//                   <h3>Need Help?</h3>
+//                   <p>
+//                     Contact the Sreshta team if you need assistance with this
+//                     shipment.
+//                   </p>
+//                   <div style={{ marginTop: 15 }}>
+//                     <Link href="/logistics/contact" className="btn-secondary">
+//                       Contact Support
+//                     </Link>
+//                   </div>
+//                 </div>
+//               </div>
+//             </div>
+//           </div>
+//         </section>
+//       </main>
+//     </>
+//   );
+// }
+
+// import Link from "next/link";
+// import { notFound } from "next/navigation";
+// import { formatDate } from "@/utils/formatters";
+
+// export const dynamic = "force-dynamic";
+
+// type TrackingDetailPageProps = {
+//   params: {
+//     awb: string;
+//   };
+// };
+
+// type RawTrackingEvent = {
+//   id?: string;
+//   status?: string;
+//   location?: string;
+//   description?: string;
+//   remarks?: string;
+//   timestamp?: string;
+//   eventTime?: string;
+//   createdAt?: string;
+// };
+
+// type PublicEvent = {
+//   id: string;
+//   status: string;
+//   title: string;
+//   location: string;
+//   description: string;
+//   timestamp: string;
+//   active: boolean;
+//   completed: boolean;
+// };
+
+// type PublicShipment = {
+//   awb: string;
+//   currentStatus: string;
+//   origin: string;
+//   destination: string;
+//   consigneeName?: string;
+//   forwardingNumber?: string;
+//   shipmentDate?: string;
+//   latestLocation?: string;
+//   serviceType?: string;
+// };
+
+// const EXCEPTION_CODES = ["ON_HOLD", "EXCEPTION", "CANCELLED"] as const;
+
+// function formatAwb(awb: string) {
+//   try {
+//     return decodeURIComponent(awb).trim().toUpperCase();
+//   } catch {
+//     return awb.trim().toUpperCase();
+//   }
+// }
+
+// function humanLabel(code: string, fallback?: string): string {
+//   if (fallback?.trim()) return fallback.trim();
+//   return code
+//     .toLowerCase()
+//     .split("_")
+//     .map((part) => part.charAt(0).toUpperCase() + part.slice(1))
+//     .join(" ");
+// }
+
+// function defaultDescription(code: string, title: string): string {
+//   const map: Record<string, string> = {
+//     BOOKED: "Shipment booking has been registered successfully.",
+//     BOOKING_CONFIRMED: "Shipment booking has been registered successfully.",
+//     PICKUP_REQUESTED: "Pickup has been requested from the shipper.",
+//     PICKED_UP: "Shipment has been collected from the shipper.",
+//     SHIPMENT_RECEIVED: "Shipment has been received at the facility.",
+//     AT_ORIGIN: "Shipment has reached the origin processing facility.",
+//     HANDLING_IN_PROGRESS: "Shipment handling is in progress.",
+//     PROCESSED_AND_PACKED: "Shipment has been processed and packed for export.",
+//     SHIPPING_LABEL_GENERATED: "Shipping label has been generated.",
+//     FORWARDED_TO_AIRPORT: "Shipment has been forwarded to the airport.",
+//     IN_TRANSIT: "Shipment is in transit toward the destination.",
+//     ARRIVED_DESTINATION: "Shipment has arrived at the destination facility.",
+//     OUT_FOR_DELIVERY: "Shipment is out for delivery.",
+//     DELIVERED: "Shipment has been delivered successfully.",
+//     ON_HOLD: "Shipment is currently on hold.",
+//     EXCEPTION: "An exception was recorded for this shipment.",
+//     CANCELLED: "This shipment has been cancelled.",
+//   };
+//   return map[code] || `Shipment status updated to ${title}.`;
+// }
+
+// function eventTimeMs(e: RawTrackingEvent): number {
+//   const raw = e.timestamp || e.eventTime || e.createdAt || "";
+//   const t = new Date(String(raw)).getTime();
+//   return Number.isFinite(t) ? t : 0;
+// }
+
+// function eventTimeRaw(e: RawTrackingEvent | undefined): string {
+//   if (!e) return "";
+//   return String(e.timestamp || e.eventTime || e.createdAt || "").trim();
+// }
+
+// /** Display time in IST so public page matches local operations */
+// function formatEventTime(raw: string): string {
+//   const d = new Date(raw);
+//   if (Number.isNaN(d.getTime())) return "";
+//   return new Intl.DateTimeFormat("en-IN", {
+//     day: "2-digit",
+//     month: "short",
+//     year: "numeric",
+//     hour: "2-digit",
+//     minute: "2-digit",
+//     hour12: true,
+//     timeZone: "Asia/Kolkata",
+//   }).format(d);
+// }
+
+// async function loadTracking(awb: string): Promise<{
+//   shipment: PublicShipment | null;
+//   events: PublicEvent[];
+//   error: string | null;
+// }> {
+//   try {
+//     const { adminDb } = await import("@/lib/firebase-admin");
+//     const { getTrackingEvents } = await import("@/lib/tracking");
+
+//     const snap = await adminDb
+//       .collection("awbs")
+//       .where("awb", "==", awb)
+//       .limit(1)
+//       .get();
+
+//     let data: FirebaseFirestore.DocumentData | null = null;
+
+//     if (!snap.empty) {
+//       data = snap.docs[0]!.data();
+//     } else {
+//       const byId = await adminDb.collection("awbs").doc(awb).get();
+//       if (byId.exists) data = byId.data() || null;
+//     }
+
+//     if (!data) {
+//       return {
+//         shipment: null,
+//         events: [],
+//         error: "Shipment was not found for this AWB.",
+//       };
+//     }
+
+//     const rawEventsIn = await getTrackingEvents(awb);
+
+//     const rawEvents: RawTrackingEvent[] = (rawEventsIn || []).map(
+//       (e: Record<string, unknown>) => ({
+//         id: e.id ? String(e.id) : undefined,
+//         status: e.status ? String(e.status) : undefined,
+//         location: e.location ? String(e.location) : undefined,
+//         description: e.description
+//           ? String(e.description)
+//           : e.remarks
+//             ? String(e.remarks)
+//             : undefined,
+//         remarks: e.remarks ? String(e.remarks) : undefined,
+//         timestamp: e.timestamp ? String(e.timestamp) : undefined,
+//         eventTime: e.eventTime ? String(e.eventTime) : undefined,
+//         createdAt: e.createdAt ? String(e.createdAt) : undefined,
+//       }),
+//     );
+
+//     // Oldest → newest
+//     const sortedRaw = [...rawEvents].sort(
+//       (a, b) => eventTimeMs(a) - eventTimeMs(b),
+//     );
+
+//     const currentStatus = String(
+//       data.currentStatus ||
+//         sortedRaw[sortedRaw.length - 1]?.status ||
+//         "BOOKED",
+//     ).toUpperCase();
+
+//     const consignee =
+//       (data.consignee && typeof data.consignee === "object"
+//         ? (data.consignee as Record<string, unknown>)
+//         : null) ||
+//       (data.receiver && typeof data.receiver === "object"
+//         ? (data.receiver as Record<string, unknown>)
+//         : null) ||
+//       {};
+
+//     const consigneeName = String(
+//       consignee.name ||
+//         consignee.companyName ||
+//         data.consigneeName ||
+//         data.receiverName ||
+//         "",
+//     ).trim();
+
+//     const forwardingNumber = String(
+//       data.forwardingNumber || data.forwardingNo || data.trackingNo || "",
+//     ).trim();
+
+//     const shipment: PublicShipment = {
+//       awb: String(data.awb || awb),
+//       currentStatus,
+//       origin: String(data.origin || "—"),
+//       destination: String(data.destination || "—"),
+//       consigneeName: consigneeName || "—",
+//       forwardingNumber: forwardingNumber || "—",
+//       shipmentDate: data.shipmentDate
+//         ? String(data.shipmentDate)
+//         : data.bookDate
+//           ? String(data.bookDate)
+//           : undefined,
+//       latestLocation: data.latestLocation
+//         ? String(data.latestLocation)
+//         : sortedRaw[sortedRaw.length - 1]?.location,
+//       serviceType: data.serviceType
+//         ? String(data.serviceType)
+//         : data.service
+//           ? String(data.service)
+//           : undefined,
+//     };
+
+//     // ONLY real tracking events — do not fill previous matrix stages
+//     const events: PublicEvent[] = sortedRaw.map((raw, index) => {
+//       const code = String(raw.status || "")
+//         .trim()
+//         .toUpperCase();
+//       const title = humanLabel(code);
+//       const rawTs = eventTimeRaw(raw);
+//       const isLatest = index === sortedRaw.length - 1;
+
+//       return {
+//         id: raw.id || `event-${code}-${index}`,
+//         status: code,
+//         title,
+//         location: String(raw.location || "").trim() || "—",
+//         description:
+//           raw.description ||
+//           raw.remarks ||
+//           defaultDescription(code, title),
+//         timestamp: rawTs ? formatEventTime(rawTs) : "",
+//         active: isLatest,
+//         completed: true,
+//       };
+//     });
+
+//     // No events yet: single row from current shipment status
+//     if (events.length === 0) {
+//       const code = currentStatus || "BOOKED";
+//       events.push({
+//         id: "stage-initial",
+//         status: code,
+//         title: humanLabel(code),
+//         location: shipment.origin || "—",
+//         description: defaultDescription(code, humanLabel(code)),
+//         timestamp: shipment.shipmentDate
+//           ? formatEventTime(String(shipment.shipmentDate))
+//           : "",
+//         active: true,
+//         completed: true,
+//       });
+//     }
+
+//     return { shipment, events, error: null };
+//   } catch (err) {
+//     console.error("Public tracking load failed:", err);
+//     return {
+//       shipment: null,
+//       events: [],
+//       error:
+//         "Unable to load tracking information right now. Please try again later.",
+//     };
+//   }
+// }
+
+// export default async function TrackingDetailPage({
+//   params,
+// }: TrackingDetailPageProps) {
+//   const awb = formatAwb(params.awb);
+
+//   if (!awb) {
+//     notFound();
+//   }
+
+//   const { shipment, events, error } = await loadTracking(awb);
+
+//   if (error || !shipment) {
+//     return (
+//       <>
+//         <header className="site-header">
+//           <div className="container-site header-inner">
+//             <Link href="/logistics">
+//               <img
+//                 src="/images/sreshta-logistics-logo.png"
+//                 alt="Sreshta Logistics"
+//                 className="header-logo"
+//               />
+//             </Link>
+//             <nav className="desktop-nav">
+//               <Link href="/logistics">Home</Link>
+//               <Link href="/logistics/services">Services</Link>
+//               <Link href="/logistics/international">International</Link>
+//               <Link href="/logistics/domestic">Domestic</Link>
+//               <Link href="/logistics/cargo-freight">Cargo & Freight</Link>
+//               <Link href="/logistics/about">About</Link>
+//               <Link href="/logistics/contact">Contact</Link>
+//             </nav>
+//             <div className="header-actions">
+//               <Link href="/logistics/track" className="btn-secondary">
+//                 Track Another
+//               </Link>
+//               <Link href="/logistics/book-freight" className="btn-primary">
+//                 Book Freight
+//               </Link>
+//             </div>
+//           </div>
+//         </header>
+
+//         <main>
+//           <section className="page-hero">
+//             <div className="container-site">
+//               <span className="section-label" style={{ color: "#78e1e4" }}>
+//                 Shipment Tracking
+//               </span>
+//               <h1>Shipment {awb}</h1>
+//               <p>
+//                 {error ||
+//                   "No public tracking information is available for this AWB."}
+//               </p>
+//             </div>
+//           </section>
+
+//           <section className="section">
+//             <div className="container-site" style={{ textAlign: "center" }}>
+//               <div
+//                 className="form-shell"
+//                 style={{ padding: 32, maxWidth: 560, margin: "0 auto" }}
+//               >
+//                 <h2 className="section-title" style={{ fontSize: "1.5rem" }}>
+//                   Shipment not found
+//                 </h2>
+//                 <p className="section-description">
+//                   Please check the AWB number and try again. If you believe
+//                   this is an error, contact support.
+//                 </p>
+//                 <div
+//                   style={{
+//                     marginTop: 24,
+//                     display: "flex",
+//                     gap: 12,
+//                     justifyContent: "center",
+//                     flexWrap: "wrap",
+//                   }}
+//                 >
+//                   <Link href="/logistics/track" className="btn-primary">
+//                     Track Another
+//                   </Link>
+//                   <Link href="/logistics/contact" className="btn-secondary">
+//                     Contact Support
+//                   </Link>
+//                 </div>
+//               </div>
+//             </div>
+//           </section>
+//         </main>
+//       </>
+//     );
+//   }
+
+//   const currentLabel = humanLabel(shipment.currentStatus);
+//   const latestLocation =
+//     shipment.latestLocation ||
+//     events.filter((e) => e.completed).at(-1)?.location ||
+//     "—";
+
+//   // Already only real updates
+//   const visibleEvents = events;
+//   const completedCount = visibleEvents.length;
+//   const progressHeight = completedCount <= 1 ? 0 : 100;
+
+//   return (
+//     <>
+//       <header className="site-header">
+//         <div className="container-site header-inner">
+//           <Link href="/logistics">
+//             <img
+//               src="/images/sreshta-logistics-logo.png"
+//               alt="Sreshta Logistics"
+//               className="header-logo"
+//             />
+//           </Link>
+//           <nav className="desktop-nav">
+//             <Link href="/logistics">Home</Link>
+//             <Link href="/logistics/services">Services</Link>
+//             <Link href="/logistics/international">International</Link>
+//             <Link href="/logistics/domestic">Domestic</Link>
+//             <Link href="/logistics/cargo-freight">Cargo & Freight</Link>
+//             <Link href="/logistics/about">About</Link>
+//             <Link href="/logistics/contact">Contact</Link>
+//           </nav>
+//           <div className="header-actions">
+//             <Link href="/logistics/track" className="btn-secondary">
+//               Track Another
+//             </Link>
+//             <Link href="/logistics/book-freight" className="btn-primary">
+//               Book Freight
+//             </Link>
+//           </div>
+//         </div>
+//       </header>
+
+//       <main>
+//         <section className="page-hero">
+//           <div className="container-site">
+//             <span className="section-label" style={{ color: "#78e1e4" }}>
+//               Shipment Tracking
+//             </span>
+//             <h1>Shipment {shipment.awb}</h1>
+//             <p>
+//               Follow the current shipment status and public tracking timeline
+//               below.
+//             </p>
+//           </div>
+//         </section>
+
+//         <section className="section">
+//           <div className="container-site">
+//             <div className="tracking-summary">
+//               <div className="summary-box">
+//                 <span>AWB</span>
+//                 <strong>{shipment.awb}</strong>
+//               </div>
+//               <div className="summary-box">
+//                 <span>Current Status</span>
+//                 <strong style={{ color: "var(--logistics-teal-dark)" }}>
+//                   {currentLabel}
+//                 </strong>
+//               </div>
+//               <div className="summary-box">
+//                 <span>Origin</span>
+//                 <strong>{shipment.origin}</strong>
+//               </div>
+//               <div className="summary-box">
+//                 <span>Destination</span>
+//                 <strong>{shipment.destination}</strong>
+//               </div>
+//               <div className="summary-box">
+//                 <span>Consignee</span>
+//                 <strong>{shipment.consigneeName || "—"}</strong>
+//               </div>
+//               <div className="summary-box">
+//                 <span>Forwarding Number</span>
+//                 <strong>{shipment.forwardingNumber || "—"}</strong>
+//               </div>
+//             </div>
+
+//             <div className="split-grid">
+//               <div>
+//                 <span className="section-label">Tracking Timeline</span>
+//                 <h2 className="section-title" style={{ fontSize: "2rem" }}>
+//                   Shipment Journey
+//                 </h2>
+//                 <p className="section-description">
+//                   Only stages that have been updated for this shipment are
+//                   shown.
+//                 </p>
+
+//                 {visibleEvents.length === 0 ? (
+//                   <div className="notice" style={{ marginTop: 35 }}>
+//                     No tracking updates yet for this AWB.
+//                   </div>
+//                 ) : (
+//                   <div className="timeline" style={{ marginTop: 35 }}>
+//                     <div
+//                       className="timeline-progress"
+//                       style={{ height: `${progressHeight}%` }}
+//                       aria-hidden
+//                     />
+//                     {visibleEvents.map((event) => (
+//                       <div
+//                         className={`timeline-item ${
+//                           event.completed ? "active" : ""
+//                         }`}
+//                         key={event.id}
+//                       >
+//                         <span className="timeline-dot" />
+//                         <div className="timeline-content">
+//                           <div
+//                             style={{
+//                               display: "flex",
+//                               justifyContent: "space-between",
+//                               gap: 15,
+//                               flexWrap: "wrap",
+//                             }}
+//                           >
+//                             <h3
+//                               style={{
+//                                 margin: 0,
+//                                 fontWeight: 750,
+//                                 color: event.completed
+//                                   ? "var(--logistics-teal-dark, #0b7a78)"
+//                                   : "#0f172a",
+//                               }}
+//                             >
+//                               {event.title}
+//                             </h3>
+//                             <span
+//                               style={{
+//                                 color: event.completed
+//                                   ? "var(--logistics-teal-dark, #0b7a78)"
+//                                   : "#0f172a",
+//                                 fontSize: ".7rem",
+//                                 fontWeight: 800,
+//                               }}
+//                             >
+//                               {event.status}
+//                             </span>
+//                           </div>
+//                           <p>{event.description}</p>
+//                           <p style={{ marginTop: 9 }}>
+//                             <strong>{event.location}</strong>
+//                             {event.timestamp &&
+//                             event.timestamp !== "—" &&
+//                             event.timestamp !== "Pending"
+//                               ? ` · ${event.timestamp}`
+//                               : null}
+//                           </p>
+//                         </div>
+//                       </div>
+//                     ))}
+//                   </div>
+//                 )}
+//               </div>
+
+//               <div>
+//                 <div className="form-shell" style={{ padding: 24 }}>
+//                   <span className="section-label">Shipment Details</span>
+//                   <div style={{ display: "grid", gap: 18, marginTop: 15 }}>
+//                     <div>
+//                       <span className="form-label">Shipment Date</span>
+//                       <p style={{ margin: "4px 0 0", color: "#64748b" }}>
+//                         {shipment.shipmentDate
+//                           ? formatDate(shipment.shipmentDate)
+//                           : "—"}
+//                       </p>
+//                     </div>
+//                     <div>
+//                       <span className="form-label">Latest Location</span>
+//                       <p style={{ margin: "4px 0 0", color: "#64748b" }}>
+//                         {latestLocation}
+//                       </p>
+//                     </div>
+//                     <div>
+//                       <span className="form-label">Service</span>
+//                       <p style={{ margin: "4px 0 0", color: "#64748b" }}>
+//                         {shipment.serviceType
+//                           ? humanLabel(shipment.serviceType)
+//                           : "—"}
+//                       </p>
+//                     </div>
+//                     <div>
+//                       <span className="form-label">Current Status</span>
+//                       <p
+//                         style={{
+//                           margin: "4px 0 0",
+//                           color: "var(--logistics-teal-dark)",
+//                           fontWeight: 750,
+//                         }}
+//                       >
+//                         {currentLabel}
+//                       </p>
+//                     </div>
+//                   </div>
+//                 </div>
+
+//                 <div className="service-card" style={{ marginTop: 18 }}>
+//                   <div className="service-icon">?</div>
+//                   <h3>Need Help?</h3>
+//                   <p>
+//                     Contact the Sreshta team if you need assistance with this
+//                     shipment.
+//                   </p>
+//                   <div style={{ marginTop: 15 }}>
+//                     <Link href="/logistics/contact" className="btn-secondary">
+//                       Contact Support
+//                     </Link>
+//                   </div>
+//                 </div>
+//               </div>
+//             </div>
+//           </div>
+//         </section>
+//       </main>
+//     </>
+//   );
+// }
+
 import Link from "next/link";
 import { notFound } from "next/navigation";
-import { formatDate, formatDateTime } from "@/utils/formatters";
+import { formatDate } from "@/utils/formatters";
 
 export const dynamic = "force-dynamic";
 
@@ -6174,36 +7451,6 @@ type PublicShipment = {
   shipmentDate?: string;
   latestLocation?: string;
   serviceType?: string;
-};
-
-const FALLBACK_PIPELINE: Array<{ code: string; label: string }> = [
-  { code: "BOOKED", label: "Booked" },
-  { code: "PICKED_UP", label: "Picked Up" },
-  { code: "IN_TRANSIT", label: "In Transit" },
-  { code: "OUT_FOR_DELIVERY", label: "Out For Delivery" },
-  { code: "DELIVERED", label: "Delivered" },
-];
-
-const EXCEPTION_CODES = ["ON_HOLD", "EXCEPTION", "CANCELLED"] as const;
-
-const STATUS_ALIASES: Record<string, string[]> = {
-  BOOKED: ["BOOKED", "BOOKING_CONFIRMED"],
-  BOOKING_CONFIRMED: ["BOOKED", "BOOKING_CONFIRMED"],
-  PICKUP_REQUESTED: ["PICKUP_REQUESTED"],
-  PICKED_UP: ["PICKED_UP", "SHIPMENT_RECEIVED"],
-  SHIPMENT_RECEIVED: ["PICKED_UP", "SHIPMENT_RECEIVED"],
-  AT_ORIGIN: ["AT_ORIGIN"],
-  HANDLING_IN_PROGRESS: ["HANDLING_IN_PROGRESS"],
-  PROCESSED_AND_PACKED: ["PROCESSED_AND_PACKED"],
-  SHIPPING_LABEL_GENERATED: ["SHIPPING_LABEL_GENERATED"],
-  FORWARDED_TO_AIRPORT: ["FORWARDED_TO_AIRPORT", "IN_TRANSIT"],
-  IN_TRANSIT: ["IN_TRANSIT", "FORWARDED_TO_AIRPORT"],
-  ARRIVED_DESTINATION: ["ARRIVED_DESTINATION"],
-  OUT_FOR_DELIVERY: ["OUT_FOR_DELIVERY"],
-  DELIVERED: ["DELIVERED"],
-  ON_HOLD: ["ON_HOLD"],
-  EXCEPTION: ["EXCEPTION"],
-  CANCELLED: ["CANCELLED"],
 };
 
 function formatAwb(awb: string) {
@@ -6257,53 +7504,19 @@ function eventTimeRaw(e: RawTrackingEvent | undefined): string {
   return String(e.timestamp || e.eventTime || e.createdAt || "").trim();
 }
 
-function buildPipeline(
-  stages: Array<{ code: string; label: string }>,
-  eventCodes: string[],
-  currentStatus: string,
-): Array<{ code: string; label: string }> {
-  const base =
-    stages.length > 0
-      ? stages.map((s) => ({
-          code: String(s.code).toUpperCase(),
-          label: s.label || humanLabel(s.code),
-        }))
-      : FALLBACK_PIPELINE.map((s) => ({ ...s }));
-
-  const seen = new Set(base.map((s) => s.code));
-
-  for (const code of EXCEPTION_CODES) {
-    if (
-      (eventCodes.includes(code) || currentStatus === code) &&
-      !seen.has(code)
-    ) {
-      base.push({ code, label: humanLabel(code) });
-      seen.add(code);
-    }
-  }
-
-  return base;
-}
-
-function resolveStageIndex(
-  pipeline: Array<{ code: string }>,
-  status: string,
-): number {
-  const code = status.toUpperCase();
-
-  let idx = pipeline.findIndex((p) => p.code === code);
-  if (idx >= 0) return idx;
-
-  const aliases = STATUS_ALIASES[code] || [code];
-  for (const alias of aliases) {
-    idx = pipeline.findIndex((p) => p.code === alias);
-    if (idx >= 0) return idx;
-  }
-
-  idx = pipeline.findIndex(
-    (p) => code.includes(p.code) || p.code.includes(code),
-  );
-  return idx;
+/** Display time in IST */
+function formatEventTime(raw: string): string {
+  const d = new Date(raw);
+  if (Number.isNaN(d.getTime())) return "";
+  return new Intl.DateTimeFormat("en-IN", {
+    day: "2-digit",
+    month: "short",
+    year: "numeric",
+    hour: "2-digit",
+    minute: "2-digit",
+    hour12: true,
+    timeZone: "Asia/Kolkata",
+  }).format(d);
 }
 
 async function loadTracking(awb: string): Promise<{
@@ -6313,9 +7526,7 @@ async function loadTracking(awb: string): Promise<{
 }> {
   try {
     const { adminDb } = await import("@/lib/firebase-admin");
-    const { getTrackingEvents, getTrackingStages } = await import(
-      "@/lib/tracking"
-    );
+    const { getTrackingEvents } = await import("@/lib/tracking");
 
     const snap = await adminDb
       .collection("awbs")
@@ -6340,10 +7551,7 @@ async function loadTracking(awb: string): Promise<{
       };
     }
 
-    const [rawEventsIn, stages] = await Promise.all([
-      getTrackingEvents(awb),
-      getTrackingStages("LOGISTICS"),
-    ]);
+    const rawEventsIn = await getTrackingEvents(awb);
 
     const rawEvents: RawTrackingEvent[] = (rawEventsIn || []).map(
       (e: Record<string, unknown>) => ({
@@ -6362,26 +7570,10 @@ async function loadTracking(awb: string): Promise<{
       }),
     );
 
-    // Oldest → newest; FIRST event per status keeps original scan time
+    // Oldest → newest
     const sortedRaw = [...rawEvents].sort(
       (a, b) => eventTimeMs(a) - eventTimeMs(b),
     );
-
-    const eventByStatus = new Map<string, RawTrackingEvent>();
-    for (const e of sortedRaw) {
-      const code = String(e.status || "")
-        .trim()
-        .toUpperCase();
-      if (!code) continue;
-      if (!eventByStatus.has(code)) {
-        eventByStatus.set(code, e);
-      }
-    }
-
-    /** Exact status only — never borrow another stage's timestamp */
-    function eventForStage(stageCode: string): RawTrackingEvent | undefined {
-      return eventByStatus.get(stageCode.toUpperCase());
-    }
 
     const currentStatus = String(
       data.currentStatus ||
@@ -6432,53 +7624,59 @@ async function loadTracking(awb: string): Promise<{
           : undefined,
     };
 
-    const eventCodes = sortedRaw.map((e) =>
-      String(e.status || "")
+    // One row per status — latest event wins (no duplicate SHIPMENT_RECEIVED, etc.)
+    const latestByStatus = new Map<string, RawTrackingEvent>();
+    for (const e of sortedRaw) {
+      const code = String(e.status || "")
         .trim()
-        .toUpperCase(),
-    );
+        .toUpperCase();
+      if (!code) continue;
+      latestByStatus.set(code, e);
+    }
 
-    const pipeline = buildPipeline(
-      stages.map((s) => ({
-        code: String(s.code).toUpperCase(),
-        label: s.label || humanLabel(s.code),
-      })),
-      eventCodes,
-      currentStatus,
-    );
+    const uniqueSorted = [...latestByStatus.entries()]
+      .map(([, e]) => e)
+      .sort((a, b) => eventTimeMs(a) - eventTimeMs(b));
 
-    const currentIndex = resolveStageIndex(pipeline, currentStatus);
-
-    const events: PublicEvent[] = pipeline.map((stage, index) => {
-      const event = eventForStage(stage.code);
-
-      const completed =
-        currentIndex >= 0
-          ? index <= currentIndex
-          : Boolean(event) || eventCodes.includes(stage.code);
-
-      const title = humanLabel(stage.code, stage.label);
-      const location =
-        event?.location ||
-        (completed && index === 0 ? shipment.origin : undefined) ||
-        "—";
-
-      const rawTs = eventTimeRaw(event);
+    const events: PublicEvent[] = uniqueSorted.map((raw, index) => {
+      const code = String(raw.status || "")
+        .trim()
+        .toUpperCase();
+      const title = humanLabel(code);
+      const rawTs = eventTimeRaw(raw);
+      const isLatest = index === uniqueSorted.length - 1;
 
       return {
-        id: event?.id || `stage-${stage.code}`,
-        status: stage.code,
+        id: raw.id || `event-${code}-${index}`,
+        status: code,
         title,
-        location,
+        location: String(raw.location || "").trim() || "—",
         description:
-          event?.description ||
-          event?.remarks ||
-          defaultDescription(stage.code, title),
-        timestamp: rawTs ? formatDateTime(rawTs) : "",
-        active: completed,
-        completed,
+          raw.description ||
+          raw.remarks ||
+          defaultDescription(code, title),
+        timestamp: rawTs ? formatEventTime(rawTs) : "",
+        active: isLatest,
+        completed: true,
       };
     });
+
+    // No events yet: single row from current shipment status
+    if (events.length === 0) {
+      const code = currentStatus || "BOOKED";
+      events.push({
+        id: "stage-initial",
+        status: code,
+        title: humanLabel(code),
+        location: shipment.origin || "—",
+        description: defaultDescription(code, humanLabel(code)),
+        timestamp: shipment.shipmentDate
+          ? formatEventTime(String(shipment.shipmentDate))
+          : "",
+        active: true,
+        completed: true,
+      });
+    }
 
     return { shipment, events, error: null };
   } catch (err) {
@@ -6592,7 +7790,7 @@ export default async function TrackingDetailPage({
     events.filter((e) => e.completed).at(-1)?.location ||
     "—";
 
-  const visibleEvents = events.filter((e) => e.completed || e.active);
+  const visibleEvents = events;
   const completedCount = visibleEvents.length;
   const progressHeight = completedCount <= 1 ? 0 : 100;
 
@@ -6679,8 +7877,8 @@ export default async function TrackingDetailPage({
                   Shipment Journey
                 </h2>
                 <p className="section-description">
-                  Stages match the active configuration from Tracking Matrix →
-                  Configure stages.
+                  Only stages that have been updated for this shipment are
+                  shown.
                 </p>
 
                 {visibleEvents.length === 0 ? (
