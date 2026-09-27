@@ -1467,6 +1467,7 @@ const logisticsLinks = [
   
   { label: "Co-loaders", href: "/admin/logistics/co-loaders" },
   // { label: "Invoices", href: "/admin/logistics/invoices" },
+  { label: "Pickup Requests", href: "/admin/logistics/pickup-requests" },
   { label: "Reports", href: "/admin/logistics/reports" },
   { label: "Settings", href: "/admin/logistics/settings" },
 ];

@@ -188,6 +188,18 @@ const sections: NavSection[] = [
         ],
       },
       {
+        label: "Pickup Requests",
+        href: "/admin/logistics/pickup-requests",
+        icon: MapPin, // or CalendarCheck
+        roles: [
+          "SUPER_ADMIN",
+          "ADMIN",
+          "LOGISTICS_MANAGER",
+          "LOGISTICS_OPERATOR",
+          "VIEWER",
+        ],
+      },
+      {
         label: "Invoices",
         href: "/admin/logistics/invoices",
         icon: FileText,
