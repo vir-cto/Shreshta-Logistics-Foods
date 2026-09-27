@@ -544,7 +544,7 @@ export default function PickupRequestPage() {
         </section>
       </main>
 
-      <footer className="footer">
+      {/* <footer className="footer">
         <div className="container-site footer-main">
           <div>
             <img
@@ -589,7 +589,7 @@ export default function PickupRequestPage() {
         <div className="container-site footer-bottom">
           © {new Date().getFullYear()} Sreshta Logistics.
         </div>
-      </footer>
+      </footer> */}
     </>
   );
 }
