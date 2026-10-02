@@ -546,6 +546,34 @@ export async function verifySessionCookie(): Promise<AuthenticatedUser | null> {
   }
 }
 
+// export async function getCurrentUser(
+//   request: Request,
+// ): Promise<PermissionUser | null> {
+//   try {
+//     let authUser = await getOptionalAuth(request);
+//     if (!authUser) {
+//       authUser = await verifySessionCookie();
+//     }
+//     if (!authUser) return null;
+
+//     const userSnap = await adminDb
+//       .collection(FIRESTORE_COLLECTIONS.USERS)
+//       .doc(authUser.userId)
+//       .get();
+
+//     const data = userSnap.exists ? userSnap.data() : undefined;
+//     const role =
+//       (data?.role as PermissionUser["role"] | undefined) || null;
+
+//     return {
+//       userId: authUser.userId,
+//       role,
+//     };
+//   } catch {
+//     return null;
+//   }
+// }
+
 export async function getCurrentUser(
   request: Request,
 ): Promise<PermissionUser | null> {
@@ -565,9 +593,17 @@ export async function getCurrentUser(
     const role =
       (data?.role as PermissionUser["role"] | undefined) || null;
 
+    const coLoaderCode = String(
+      data?.coLoaderCode || data?.coloaderCode || data?.accountCode || "",
+    )
+      .trim()
+      .toUpperCase();
+
     return {
       userId: authUser.userId,
       role,
+      coLoaderCode: coLoaderCode || null,
+      accountCode: coLoaderCode || null,
     };
   } catch {
     return null;

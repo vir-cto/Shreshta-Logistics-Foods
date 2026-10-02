@@ -6454,6 +6454,8 @@ export async function POST(request: NextRequest) {
       );
     }
 
+    
+
     const isSuperAdmin = user.role === "SUPER_ADMIN";
     const canManageCharges = isSuperAdmin;
 
@@ -6536,6 +6538,22 @@ export async function POST(request: NextRequest) {
         "At least one shipment piece is required.",
         400,
       );
+    }
+
+        // Co-loader may only book under their own account code
+    let accountCode = str(body.accountCode).toUpperCase();
+    if (user.role === "CO_LOADER") {
+      const code = String(user.coLoaderCode || user.accountCode || "")
+        .trim()
+        .toUpperCase();
+      if (!code) {
+        return errorResponse(
+          "COLOADER_CODE_MISSING",
+          "Your co-loader account has no code. Contact admin.",
+          400,
+        );
+      }
+      accountCode = code;
     }
 
     const pieces: ShipmentPiece[] = piecesInput.map((piece, index) => {
@@ -6674,7 +6692,9 @@ export async function POST(request: NextRequest) {
       customerId,
       customerName: str(body.customerName),
       customerCode: str(body.customerCode),
-      accountCode: str(body.accountCode),
+      // accountCode: str(body.accountCode),
+      accountCode: accountCode || null,
+      coLoaderCode: accountCode || null,
       senderId,
       receiverId,
       origin,

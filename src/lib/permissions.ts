@@ -1092,6 +1092,154 @@
 //   return user?.role === "SUPER_ADMIN";
 // }
 
+// export type UserRole = "SUPER_ADMIN" | "ADMIN" | "CO_LOADER";
+
+// export type Permission =
+//   | "LOGISTICS_AWB_CREATE"
+//   | "LOGISTICS_AWB_UPDATE"
+//   | "LOGISTICS_AWB_VIEW"
+//   | "LOGISTICS_TRACKING_UPDATE"
+//   | "LOGISTICS_TRACKING_VIEW"
+//   | "LOGISTICS_TRACKING_STAGE_MANAGE"
+//   | "LOGISTICS_INVOICE_CREATE"
+//   | "LOGISTICS_INVOICE_VIEW"
+//   | "LOGISTICS_RATE_VIEW"
+//   | "LOGISTICS_RATE_MANAGE"
+//   | "LOGISTICS_FUEL_SURCHARGE_VIEW"
+//   | "LOGISTICS_FUEL_SURCHARGE_MANAGE"
+//   | "LOGISTICS_COLOADER_VIEW"
+//   | "LOGISTICS_COLOADER_MANAGE"
+//   | "LOGISTICS_DAY_END"
+//   | "LOGISTICS_EXCEL_IMPORT"
+//   | "LOGISTICS_REPORTS_VIEW"
+//   | "LOGISTICS_SETTINGS"
+//   | "LOGISTICS_MASTERS_VIEW"
+//   | "LOGISTICS_MASTERS_MANAGE"
+//   | "FOOD_PRODUCT_CREATE"
+//   | "FOOD_PRODUCT_UPDATE"
+//   | "FOOD_PRODUCT_VIEW"
+//   | "FOOD_ORDER_UPDATE"
+//   | "FOOD_ORDER_VIEW"
+//   | "FOOD_INVENTORY_UPDATE"
+//   | "FOOD_INVENTORY_VIEW"
+//   | "FOOD_CATEGORY_MANAGE"
+//   | "FOOD_COUPON_MANAGE"
+//   | "FOOD_SETTINGS"
+//   | "ADMIN_USER_MANAGE"
+//   | "ADMIN_ROLE_MANAGE"
+//   | "ADMIN_AUDIT_VIEW";
+
+// export type PermissionUser = {
+//   userId: string;
+//   role: UserRole | null;
+// };
+
+// const ALL_PERMISSIONS: readonly Permission[] = [
+//   "LOGISTICS_AWB_CREATE",
+//   "LOGISTICS_AWB_UPDATE",
+//   "LOGISTICS_AWB_VIEW",
+//   "LOGISTICS_TRACKING_UPDATE",
+//   "LOGISTICS_TRACKING_VIEW",
+//   "LOGISTICS_TRACKING_STAGE_MANAGE",
+//   "LOGISTICS_INVOICE_CREATE",
+//   "LOGISTICS_INVOICE_VIEW",
+//   "LOGISTICS_RATE_VIEW",
+//   "LOGISTICS_RATE_MANAGE",
+//   "LOGISTICS_FUEL_SURCHARGE_VIEW",
+//   "LOGISTICS_FUEL_SURCHARGE_MANAGE",
+//   "LOGISTICS_COLOADER_VIEW",
+//   "LOGISTICS_COLOADER_MANAGE",
+//   "LOGISTICS_DAY_END",
+//   "LOGISTICS_EXCEL_IMPORT",
+//   "LOGISTICS_REPORTS_VIEW",
+//   "LOGISTICS_SETTINGS",
+//   "LOGISTICS_MASTERS_VIEW",
+//   "LOGISTICS_MASTERS_MANAGE",
+//   "FOOD_PRODUCT_CREATE",
+//   "FOOD_PRODUCT_UPDATE",
+//   "FOOD_PRODUCT_VIEW",
+//   "FOOD_ORDER_UPDATE",
+//   "FOOD_ORDER_VIEW",
+//   "FOOD_INVENTORY_UPDATE",
+//   "FOOD_INVENTORY_VIEW",
+//   "FOOD_CATEGORY_MANAGE",
+//   "FOOD_COUPON_MANAGE",
+//   "FOOD_SETTINGS",
+//   "ADMIN_USER_MANAGE",
+//   "ADMIN_ROLE_MANAGE",
+//   "ADMIN_AUDIT_VIEW",
+// ];
+
+// const ADMIN_PERMISSIONS: readonly Permission[] = ALL_PERMISSIONS.filter(
+//   (p) => p !== "ADMIN_ROLE_MANAGE",
+// );
+
+// /** Co-loader: logistics ops only — no masters, food, or platform admin */
+// const CO_LOADER_PERMISSIONS: readonly Permission[] = [
+//   "LOGISTICS_AWB_CREATE",
+//   "LOGISTICS_AWB_UPDATE",
+//   "LOGISTICS_AWB_VIEW",
+//   "LOGISTICS_TRACKING_UPDATE",
+//   "LOGISTICS_TRACKING_VIEW",
+//   "LOGISTICS_INVOICE_VIEW",
+//   "LOGISTICS_RATE_VIEW",
+//   "LOGISTICS_DAY_END",
+//   "LOGISTICS_REPORTS_VIEW",
+// ];
+
+// const ROLE_PERMISSIONS: Record<UserRole, readonly Permission[]> = {
+//   SUPER_ADMIN: ALL_PERMISSIONS,
+//   ADMIN: ADMIN_PERMISSIONS,
+//   CO_LOADER: CO_LOADER_PERMISSIONS,
+// };
+
+// export function can(
+//   user: PermissionUser | null | undefined,
+//   permission: Permission,
+// ): boolean {
+//   if (!user?.role) return false;
+//   return ROLE_PERMISSIONS[user.role]?.includes(permission) ?? false;
+// }
+
+// export function assertPermission(
+//   user: PermissionUser | null | undefined,
+//   permission: Permission,
+// ): void {
+//   if (!can(user, permission)) {
+//     throw new Error(`Forbidden: ${permission}`);
+//   }
+// }
+
+// export function getPermissionsForRole(role: UserRole): readonly Permission[] {
+//   return ROLE_PERMISSIONS[role] ?? [];
+// }
+
+// export function hasAnyPermission(
+//   user: PermissionUser | null | undefined,
+//   permissions: readonly Permission[],
+// ): boolean {
+//   return permissions.some((p) => can(user, p));
+// }
+
+// export function hasAllPermissions(
+//   user: PermissionUser | null | undefined,
+//   permissions: readonly Permission[],
+// ): boolean {
+//   return permissions.every((p) => can(user, p));
+// }
+
+// export function isPlatformAdmin(
+//   user: PermissionUser | null | undefined,
+// ): boolean {
+//   return user?.role === "SUPER_ADMIN" || user?.role === "ADMIN";
+// }
+
+// export function isSuperAdminOnly(
+//   user: PermissionUser | null | undefined,
+// ): boolean {
+//   return user?.role === "SUPER_ADMIN";
+// }
+
 export type UserRole = "SUPER_ADMIN" | "ADMIN" | "CO_LOADER";
 
 export type Permission =
@@ -1132,6 +1280,9 @@ export type Permission =
 export type PermissionUser = {
   userId: string;
   role: UserRole | null;
+  /** Co-loader account code, e.g. WF439 */
+  coLoaderCode?: string | null;
+  accountCode?: string | null;
 };
 
 const ALL_PERMISSIONS: readonly Permission[] = [
@@ -1174,7 +1325,6 @@ const ADMIN_PERMISSIONS: readonly Permission[] = ALL_PERMISSIONS.filter(
   (p) => p !== "ADMIN_ROLE_MANAGE",
 );
 
-/** Co-loader: logistics ops only — no masters, food, or platform admin */
 const CO_LOADER_PERMISSIONS: readonly Permission[] = [
   "LOGISTICS_AWB_CREATE",
   "LOGISTICS_AWB_UPDATE",
@@ -1238,4 +1388,14 @@ export function isSuperAdminOnly(
   user: PermissionUser | null | undefined,
 ): boolean {
   return user?.role === "SUPER_ADMIN";
+}
+
+/** Normalize co-loader code from user profile fields */
+export function resolveCoLoaderCode(
+  user: PermissionUser | null | undefined,
+): string {
+  if (!user) return "";
+  return String(user.coLoaderCode || user.accountCode || "")
+    .trim()
+    .toUpperCase();
 }

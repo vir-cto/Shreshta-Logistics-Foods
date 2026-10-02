@@ -1,21 +1,225 @@
+// import { NextRequest } from "next/server";
+
+// import {
+//   adminDb,
+// } from "@/lib/firebase-admin";
+
+// import {
+//   getCurrentUser,
+// } from "@/lib/auth";
+
+// import {
+//   successResponse,
+//   errorResponse,
+// } from "@/lib/api-response";
+
+// import {
+//   isValidAWB,
+// } from "@/utils/validators";
+
+// type RouteContext = {
+//   params: {
+//     awb: string;
+//   };
+// };
+
+// export async function GET(
+//   request: NextRequest,
+//   {
+//     params,
+//   }: RouteContext,
+// ) {
+//   try {
+//     const awb =
+//       params.awb.trim();
+
+//     if (!isValidAWB(awb)) {
+//       return errorResponse(
+//         "INVALID_AWB",
+//         "Invalid AWB.",
+//         400,
+//       );
+//     }
+
+//     const query =
+//       await adminDb
+//         .collection("awbs")
+//         .where(
+//           "awb",
+//           "==",
+//           awb,
+//         )
+//         .limit(1)
+//         .get();
+
+//     if (query.empty) {
+//       return errorResponse(
+//         "AWB_NOT_FOUND",
+//         "Shipment was not found.",
+//         404,
+//       );
+//     }
+
+//     const awbDoc =
+//       query.docs[0];
+
+//     const shipment =
+//       awbDoc.data();
+
+      
+
+//     const eventsSnapshot =
+//       await adminDb
+//         .collection(
+//           "trackingEvents",
+//         )
+//         .where(
+//           "awb",
+//           "==",
+//           awb,
+//         )
+//         .get();
+
+//     const events =
+//       eventsSnapshot.docs
+//         .map(
+//           (doc) => doc.data(),
+//         )
+//         .sort(
+//           (a, b) =>
+//             new Date(
+//               String(
+//                 a.eventTime,
+//               ),
+//             ).getTime() -
+//             new Date(
+//               String(
+//                 b.eventTime,
+//               ),
+//             ).getTime(),
+//         );
+
+//     const currentUser =
+//       await getCurrentUser(request);
+
+//     const isAdmin =
+//       Boolean(currentUser);
+
+//     if (isAdmin) {
+//       return successResponse({
+//         shipment: {
+//           ...shipment,
+//           documentId:
+//             awbDoc.id,
+//         },
+//         events,
+//       });
+//     }
+
+//     /*
+//      * Public response.
+//      * Do NOT expose customer IDs, sender IDs,
+//      * receiver IDs, internal user IDs,
+//      * internal financial details, etc.
+//      */
+
+//     const consignee =
+//       (shipment.consignee && typeof shipment.consignee === "object"
+//         ? shipment.consignee
+//         : null) ||
+//       (shipment.receiver && typeof shipment.receiver === "object"
+//         ? shipment.receiver
+//         : null) ||
+//       {};
+
+//     return successResponse({
+//       // shipment: {
+//       //   awb:
+//       //     shipment.awb,
+
+//       //   currentStatus:
+//       //     shipment.currentStatus,
+
+//       //   origin:
+//       //     shipment.origin,
+
+//       //   destination:
+//       //     shipment.destination,
+
+//       //   shipmentDate:
+//       //     shipment.shipmentDate,
+
+//       //   latestLocation:
+//       //     shipment.latestLocation ??
+//       //     null,
+//       // },
+
+//       shipment: {
+//         awb: shipment.awb,
+//         currentStatus: shipment.currentStatus,
+//         origin: shipment.origin,
+//         destination: shipment.destination,
+//         shipmentDate: shipment.shipmentDate,
+//         latestLocation: shipment.latestLocation ?? null,
+//         consigneeName:
+//           consignee.name ||
+//           consignee.companyName ||
+//           shipment.consigneeName ||
+//           shipment.receiverName ||
+//           null,
+//         forwardingNumber:
+//           shipment.forwardingNumber ||
+//           shipment.forwardingNo ||
+//           null,
+//       },
+
+//       events:
+//         events.map(
+//           (event) => ({
+//             trackingEventId:
+//               event.trackingEventId,
+
+//             status:
+//               event.status,
+
+//             trackingStageId:
+//               event.trackingStageId ??
+//               event.status,
+
+//             location:
+//               event.location ??
+//               null,
+
+//             remarks:
+//               event.remarks ??
+//               null,
+
+//             eventTime:
+//               event.eventTime,
+//           }),
+//         ),
+//     });
+//   } catch (error) {
+//     console.error(
+//       "GET /api/logistics/tracking/[awb]:",
+//       error,
+//     );
+
+//     return errorResponse(
+//       "TRACKING_FETCH_FAILED",
+//       "Unable to retrieve shipment tracking.",
+//       500,
+//     );
+//   }
+// }
+
 import { NextRequest } from "next/server";
 
-import {
-  adminDb,
-} from "@/lib/firebase-admin";
-
-import {
-  getCurrentUser,
-} from "@/lib/auth";
-
-import {
-  successResponse,
-  errorResponse,
-} from "@/lib/api-response";
-
-import {
-  isValidAWB,
-} from "@/utils/validators";
+import { adminDb } from "@/lib/firebase-admin";
+import { getCurrentUser } from "@/lib/auth";
+import { resolveCoLoaderCode } from "@/lib/permissions";
+import { successResponse, errorResponse } from "@/lib/api-response";
+import { isValidAWB } from "@/utils/validators";
 
 type RouteContext = {
   params: {
@@ -25,34 +229,58 @@ type RouteContext = {
 
 export async function GET(
   request: NextRequest,
-  {
-    params,
-  }: RouteContext,
+  { params }: RouteContext,
 ) {
   try {
-    const awb =
-      params.awb.trim();
+    const awb = String(params.awb || "").trim();
 
     if (!isValidAWB(awb)) {
-      return errorResponse(
-        "INVALID_AWB",
-        "Invalid AWB.",
-        400,
-      );
+      return errorResponse("INVALID_AWB", "Invalid AWB.", 400);
     }
 
-    const query =
-      await adminDb
-        .collection("awbs")
-        .where(
-          "awb",
-          "==",
-          awb,
-        )
-        .limit(1)
-        .get();
+    // let query = await adminDb
+    //   .collection("awbs")
+    //   .where("awb", "==", awb)
+    //   .limit(1)
+    //   .get();
 
-    if (query.empty) {
+    // Fallback: doc id == awb
+    // let awbDoc = query.empty ? null : query.docs[0]!;
+    // if (!awbDoc) {
+    //   const byId = await adminDb.collection("awbs").doc(awb).get();
+    //   if (byId.exists) {
+    //     awbDoc = byId as typeof awbDoc;
+    //   }
+    // }
+
+    // if (!awbDoc) {
+    //   return errorResponse(
+    //     "AWB_NOT_FOUND",
+    //     "Shipment was not found.",
+    //     404,
+    //   );
+    // }
+
+    // const shipment = awbDoc.data() || {};
+
+        let awbDoc: FirebaseFirestore.DocumentSnapshot | null = null;
+
+    const query = await adminDb
+      .collection("awbs")
+      .where("awb", "==", awb)
+      .limit(1)
+      .get();
+
+    if (!query.empty) {
+      awbDoc = query.docs[0]!;
+    } else {
+      const byId = await adminDb.collection("awbs").doc(awb).get();
+      if (byId.exists) {
+        awbDoc = byId;
+      }
+    }
+
+    if (!awbDoc || !awbDoc.exists) {
       return errorResponse(
         "AWB_NOT_FOUND",
         "Shipment was not found.",
@@ -60,98 +288,70 @@ export async function GET(
       );
     }
 
-    const awbDoc =
-      query.docs[0];
+    const shipment = awbDoc.data() || {};
 
-    const shipment =
-      awbDoc.data();
+    const eventsSnapshot = await adminDb
+      .collection("trackingEvents")
+      .where("awb", "==", String(shipment.awb || awb))
+      .get();
 
-    const eventsSnapshot =
-      await adminDb
-        .collection(
-          "trackingEvents",
+    const events = eventsSnapshot.docs
+      .map((doc) => doc.data())
+      .sort((a, b) => {
+        const ta = new Date(
+          String(a.eventTime || a.createdAt || 0),
+        ).getTime();
+        const tb = new Date(
+          String(b.eventTime || b.createdAt || 0),
+        ).getTime();
+        return (Number.isFinite(ta) ? ta : 0) - (Number.isFinite(tb) ? tb : 0);
+      });
+
+    const currentUser = await getCurrentUser(request);
+
+    // ---------- Authenticated admin / co-loader ----------
+    if (currentUser) {
+      const role = String(currentUser.role || "").toUpperCase();
+
+      // Co-loader may only open their own AWBs
+      if (role === "CO_LOADER") {
+        const code = resolveCoLoaderCode(currentUser);
+        const rowCode = String(
+          shipment.accountCode || shipment.coLoaderCode || "",
         )
-        .where(
-          "awb",
-          "==",
-          awb,
-        )
-        .get();
+          .trim()
+          .toUpperCase();
 
-    const events =
-      eventsSnapshot.docs
-        .map(
-          (doc) => doc.data(),
-        )
-        .sort(
-          (a, b) =>
-            new Date(
-              String(
-                a.eventTime,
-              ),
-            ).getTime() -
-            new Date(
-              String(
-                b.eventTime,
-              ),
-            ).getTime(),
-        );
+        if (!code || rowCode !== code) {
+          return errorResponse(
+            "FORBIDDEN",
+            "You can only view AWBs booked under your co-loader account.",
+            403,
+          );
+        }
+      }
 
-    const currentUser =
-      await getCurrentUser(request);
-
-    const isAdmin =
-      Boolean(currentUser);
-
-    if (isAdmin) {
+      // SUPER_ADMIN / ADMIN / CO_LOADER (own AWB) → full payload
       return successResponse({
         shipment: {
           ...shipment,
-          documentId:
-            awbDoc.id,
+          documentId: awbDoc.id,
         },
         events,
       });
     }
 
-    /*
-     * Public response.
-     * Do NOT expose customer IDs, sender IDs,
-     * receiver IDs, internal user IDs,
-     * internal financial details, etc.
-     */
-
+    // ---------- Public (no login) ----------
     const consignee =
       (shipment.consignee && typeof shipment.consignee === "object"
-        ? shipment.consignee
+        ? (shipment.consignee as Record<string, unknown>)
         : null) ||
       (shipment.receiver && typeof shipment.receiver === "object"
-        ? shipment.receiver
+        ? (shipment.receiver as Record<string, unknown>)
         : null) ||
       {};
 
     return successResponse({
-      // shipment: {
-      //   awb:
-      //     shipment.awb,
-
-      //   currentStatus:
-      //     shipment.currentStatus,
-
-      //   origin:
-      //     shipment.origin,
-
-      //   destination:
-      //     shipment.destination,
-
-      //   shipmentDate:
-      //     shipment.shipmentDate,
-
-      //   latestLocation:
-      //     shipment.latestLocation ??
-      //     null,
-      // },
-
       shipment: {
         awb: shipment.awb,
         currentStatus: shipment.currentStatus,
@@ -170,38 +370,17 @@ export async function GET(
           shipment.forwardingNo ||
           null,
       },
-
-      events:
-        events.map(
-          (event) => ({
-            trackingEventId:
-              event.trackingEventId,
-
-            status:
-              event.status,
-
-            trackingStageId:
-              event.trackingStageId ??
-              event.status,
-
-            location:
-              event.location ??
-              null,
-
-            remarks:
-              event.remarks ??
-              null,
-
-            eventTime:
-              event.eventTime,
-          }),
-        ),
+      events: events.map((event) => ({
+        trackingEventId: event.trackingEventId,
+        status: event.status,
+        trackingStageId: event.trackingStageId ?? event.status,
+        location: event.location ?? null,
+        remarks: event.remarks ?? null,
+        eventTime: event.eventTime,
+      })),
     });
   } catch (error) {
-    console.error(
-      "GET /api/logistics/tracking/[awb]:",
-      error,
-    );
+    console.error("GET /api/logistics/tracking/[awb]:", error);
 
     return errorResponse(
       "TRACKING_FETCH_FAILED",

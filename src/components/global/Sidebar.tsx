@@ -130,10 +130,10 @@ const sections: NavSection[] = [
         icon: Truck,
         roles: [
           "SUPER_ADMIN",
-          "ADMIN",
+          // "ADMIN",
           "LOGISTICS_MANAGER",
           "LOGISTICS_OPERATOR",
-          "VIEWER",
+          // "VIEWER",
         ],
       },
       {
@@ -142,7 +142,7 @@ const sections: NavSection[] = [
         icon: GitCompare,
         roles: [
           "SUPER_ADMIN",
-          "ADMIN",
+          // "ADMIN",
           "LOGISTICS_MANAGER",
         ],
       },
