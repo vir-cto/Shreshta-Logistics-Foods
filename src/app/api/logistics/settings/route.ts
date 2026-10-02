@@ -244,7 +244,7 @@
 
 import { NextRequest } from "next/server";
 import type { DocumentData } from "firebase-admin/firestore";
-
+import { toDriveDirectUrl } from "@/utils/drive-url";
 import { adminDb } from "@/lib/firebase-admin";
 import { getCurrentUser } from "@/lib/auth";
 import { can } from "@/lib/permissions";
@@ -337,7 +337,8 @@ function normalizeSettings(data?: DocumentData | null): LogisticsSettings {
         ? DEFAULT_SETTINGS.enableWhatsAppIntegration
         : Boolean(raw.enableWhatsAppIntegration),
     popupEnabled: Boolean(raw.popupEnabled),
-    popupImageUrl: String(raw.popupImageUrl || "").trim(),
+    // popupImageUrl: String(raw.popupImageUrl || "").trim(),
+    popupImageUrl: toDriveDirectUrl(String(raw.popupImageUrl || "").trim()),
     popupTitle: String(raw.popupTitle || "").trim(),
     updatedAt: raw.updatedAt ? String(raw.updatedAt) : undefined,
     updatedBy: raw.updatedBy ? String(raw.updatedBy) : undefined,
@@ -479,8 +480,11 @@ export async function PUT(request: NextRequest) {
         body.enableTransactionalNotifications,
       ),
       enableWhatsAppIntegration: Boolean(body.enableWhatsAppIntegration),
+      // popupEnabled: Boolean(body.popupEnabled),
+      // popupImageUrl: String(body.popupImageUrl || "").trim(),
+      // popupTitle: String(body.popupTitle || "").trim(),
       popupEnabled: Boolean(body.popupEnabled),
-      popupImageUrl: String(body.popupImageUrl || "").trim(),
+      popupImageUrl: toDriveDirectUrl(String(body.popupImageUrl || "").trim()),
       popupTitle: String(body.popupTitle || "").trim(),
       updatedAt: now,
       updatedBy: user.userId,
