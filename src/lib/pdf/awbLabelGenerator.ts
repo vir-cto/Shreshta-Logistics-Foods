@@ -7975,6 +7975,835 @@
 //   return pdf.save();
 // }
 
+// import "server-only";
+// import { readFileSync, existsSync } from "fs";
+// import { join } from "path";
+// import {
+//   PDFDocument,
+//   StandardFonts,
+//   rgb,
+//   type PDFPage,
+//   type PDFImage,
+//   type PDFFont,
+// } from "pdf-lib";
+
+// /* ------------------------------------------------------------------ */
+// /*  Types                                                              */
+// /* ------------------------------------------------------------------ */
+
+// export type AwbLabelData = {
+//   awb: string;
+//   accountCode?: string;
+//   bookDate?: string;
+//   printedAt?: string;
+//   shipperName: string;
+//   shipperAddress: string;
+//   shipperCity?: string;
+//   shipperState?: string;
+//   shipperPincode?: string;
+//   shipperPhone?: string;
+//   shipperCountry?: string;
+//   consigneeName: string;
+//   consigneeAddress: string;
+//   consigneeCity?: string;
+//   consigneeState?: string;
+//   consigneePincode?: string;
+//   consigneePhone?: string;
+//   consigneeMobile?: string;
+//   consigneeCountry?: string;
+//   serviceType?: string;
+//   product?: string;
+//   vendor?: string;
+//   customerReference?: string;
+//   pieces: number;
+//   actualWeight: number;
+//   chargeableWeight: number;
+//   dimensions?: string;
+//   /** Proforma items total (all boxes) — shown as declared value on label */
+//   declaredValue?: number;
+//   currency?: string;
+//   content?: string;
+//   csbType?: string;
+//   specialInstructions?: string;
+//   origin?: string;
+// };
+
+// /* ------------------------------------------------------------------ */
+// /*  Code-128 Subset B                                                  */
+// /* ------------------------------------------------------------------ */
+
+// const CODE128_PATTERNS: string[] = [
+//   "11011001100", "11001101100", "11001100110", "10010011000",
+//   "10010001100", "10001001100", "10011001000", "10011000100",
+//   "10001100100", "11001001000", "11001000100", "11000100100",
+//   "10110011100", "10011011100", "10011001110", "10111001100",
+//   "10011101100", "10011100110", "11001110010", "11001011100",
+//   "11001001110", "11011100100", "11001110100", "11101101110",
+//   "11101001100", "11100101100", "11100100110", "11101100100",
+//   "11100110100", "11100110010", "11011011000", "11011000110",
+//   "11000110110", "10100011000", "10001011000", "10001000110",
+//   "10110001000", "10001101000", "10001100010", "11010001000",
+//   "11000101000", "11000100010", "10110111000", "10110001110",
+//   "10001101110", "10111011000", "10111000110", "10001110110",
+//   "11101110110", "11010001110", "11000101110", "11011101000",
+//   "11011100010", "11011101110", "11101011000", "11101000110",
+//   "11100010110", "11101101000", "11101100010", "11100011010",
+//   "11101111010", "11001000010", "11110001010", "10100110000",
+//   "10100001100", "10010110000", "10010000110", "10000101100",
+//   "10000100110", "10110010000", "10110000100", "10011010000",
+//   "10011000010", "10000110100", "10000110010", "11000010010",
+//   "11001010000", "11110111010", "11000010100", "10001111010",
+//   "10100111100", "10010111100", "10010011110", "10111100100",
+//   "10011110100", "10011110010", "11110100100", "11110010100",
+//   "11110010010", "11011011110", "11011110110", "11110110110",
+//   "10101111000", "10100011110", "10001011110", "10111101000",
+//   "10111100010", "11110101000", "11110100010", "10111011110",
+//   "10111101110", "11101011110", "11110111010",
+// ];
+
+// const START_B = 104;
+// const STOP_PATTERN = "1100011101011";
+
+// function getPattern(value: number): string {
+//   if (value >= 0 && value < CODE128_PATTERNS.length) {
+//     return CODE128_PATTERNS[value]!;
+//   }
+//   if (value === 104) return "11010010000";
+//   if (value === 105) return "11010011100";
+//   if (value === 106) return "11000111010";
+//   return "11011001100";
+// }
+
+// function sanitizeBarcodeText(text: string): string {
+//   return String(text || "")
+//     .trim()
+//     .toUpperCase()
+//     .split("")
+//     .filter((ch) => {
+//       const code = ch.charCodeAt(0);
+//       return code >= 32 && code <= 126;
+//     })
+//     .join("");
+// }
+
+// function encodeCode128B(text: string): string {
+//   const clean = sanitizeBarcodeText(text);
+//   if (!clean) return getPattern(START_B) + STOP_PATTERN;
+
+//   const values: number[] = [START_B];
+//   for (let i = 0; i < clean.length; i++) {
+//     values.push(clean.charCodeAt(i)! - 32);
+//   }
+
+//   let checksum = values[0]!;
+//   for (let i = 1; i < values.length; i++) {
+//     checksum += values[i]! * i;
+//   }
+//   checksum %= 103;
+//   values.push(checksum);
+
+//   let pattern = "";
+//   for (const v of values) pattern += getPattern(v);
+//   pattern += STOP_PATTERN;
+//   return pattern;
+// }
+
+// function drawBarcode(
+//   page: PDFPage,
+//   x: number,
+//   y: number,
+//   barHeight: number,
+//   text: string,
+//   moduleWidth = 1.25,
+// ): number {
+//   const pattern = encodeCode128B(text);
+//   const quietZone = moduleWidth * 10;
+//   let cx = x + quietZone;
+
+//   for (let i = 0; i < pattern.length; i++) {
+//     if (pattern[i] === "1") {
+//       page.drawRectangle({
+//         x: cx,
+//         y,
+//         width: moduleWidth,
+//         height: barHeight,
+//         color: rgb(0, 0, 0),
+//       });
+//     }
+//     cx += moduleWidth;
+//   }
+
+//   return cx + quietZone - x;
+// }
+
+// function drawSpacedBarcodeText(
+//   page: PDFPage,
+//   text: string,
+//   centerX: number,
+//   y: number,
+//   targetWidth: number,
+//   font: PDFFont,
+//   size: number,
+// ) {
+//   const chars = sanitizeBarcodeText(text).split("").filter(Boolean);
+//   if (!chars.length) return;
+
+//   const charWidths = chars.map((c) => font.widthOfTextAtSize(c, size));
+//   const totalCharW = charWidths.reduce((a, b) => a + b, 0);
+//   // let gap =
+//   //   chars.length > 1 ? (targetWidth - totalCharW) / (chars.length - 1) : 0;
+//   // gap = Math.min(Math.max(gap, 2), 14);
+//     let gap =
+//     chars.length > 1 ? (targetWidth - totalCharW) / (chars.length - 1) : 0;
+//   // Tighter digit spacing (was min 2 / max 14)
+//   gap = Math.min(Math.max(gap, 1), 4);
+
+//   const usedW =
+//     totalCharW + (chars.length > 1 ? gap * (chars.length - 1) : 0);
+//   let x = centerX - usedW / 2;
+
+//   for (let i = 0; i < chars.length; i++) {
+//     page.drawText(chars[i]!, {
+//       x,
+//       y,
+//       size,
+//       font,
+//       color: rgb(0, 0, 0),
+//     });
+//     x += charWidths[i]! + gap;
+//   }
+// }
+
+// /* ------------------------------------------------------------------ */
+// /*  Text helpers                                                       */
+// /* ------------------------------------------------------------------ */
+
+// function wrapText(text: string, maxChars: number): string[] {
+//   if (!text) return [];
+//   const words = String(text).split(/\s+/).filter(Boolean);
+//   const lines: string[] = [];
+//   let current = "";
+
+//   for (const word of words) {
+//     const next = current ? `${current} ${word}` : word;
+//     if (next.length <= maxChars) {
+//       current = next;
+//     } else {
+//       if (current) lines.push(current);
+//       if (word.length > maxChars) {
+//         let rest = word;
+//         while (rest.length > maxChars) {
+//           lines.push(rest.slice(0, maxChars));
+//           rest = rest.slice(maxChars);
+//         }
+//         current = rest;
+//       } else {
+//         current = word;
+//       }
+//     }
+//   }
+//   if (current) lines.push(current);
+//   return lines;
+// }
+
+// function formatDateOnly(value?: string): string {
+//   if (value) {
+//     const m = value.match(/(\d{1,2})[\/\-](\d{1,2})[\/\-](\d{2,4})/);
+//     if (m) {
+//       const d = m[1]!.padStart(2, "0");
+//       const mo = m[2]!.padStart(2, "0");
+//       const y = m[3]!.length === 2 ? `20${m[3]}` : m[3]!;
+//       return `${d}-${mo}-${y}`;
+//     }
+//     const parsed = new Date(value);
+//     if (!Number.isNaN(parsed.getTime())) {
+//       const pad = (n: number) => String(n).padStart(2, "0");
+//       return `${pad(parsed.getDate())}-${pad(parsed.getMonth() + 1)}-${parsed.getFullYear()}`;
+//     }
+//   }
+//   const d = new Date();
+//   const pad = (n: number) => String(n).padStart(2, "0");
+//   return `${pad(d.getDate())}-${pad(d.getMonth() + 1)}-${d.getFullYear()}`;
+// }
+
+// function formatPrintedAt(value?: string): string {
+//   if (value) {
+//     const parsed = new Date(value);
+//     if (!Number.isNaN(parsed.getTime())) {
+//       const pad = (n: number) => String(n).padStart(2, "0");
+//       return `${pad(parsed.getDate())}/${pad(parsed.getMonth() + 1)}/${parsed.getFullYear()} ${pad(parsed.getHours())}:${pad(parsed.getMinutes())}:${pad(parsed.getSeconds())}`;
+//     }
+//     return value;
+//   }
+//   const d = new Date();
+//   const pad = (n: number) => String(n).padStart(2, "0");
+//   return `${pad(d.getDate())}/${pad(d.getMonth() + 1)}/${d.getFullYear()} ${pad(d.getHours())}:${pad(d.getMinutes())}:${pad(d.getSeconds())}`;
+// }
+
+// function formatPodDateTime(value?: string): {
+//   date: string;
+//   time: string;
+//   meridiem: "AM" | "PM";
+// } {
+//   const d = value ? new Date(value) : new Date();
+//   const safe = Number.isNaN(d.getTime()) ? new Date() : d;
+//   const pad = (n: number) => String(n).padStart(2, "0");
+//   const date = `${pad(safe.getDate())}/${pad(safe.getMonth() + 1)}/${safe.getFullYear()}`;
+//   let hours = safe.getHours();
+//   const meridiem: "AM" | "PM" = hours >= 12 ? "PM" : "AM";
+//   hours = hours % 12;
+//   if (hours === 0) hours = 12;
+//   const time = `${pad(hours)}:${pad(safe.getMinutes())}`;
+//   return { date, time, meridiem };
+// }
+
+// function extraLocationLines(
+//   address: string,
+//   city?: string,
+//   state?: string,
+//   pincode?: string,
+// ): string[] {
+//   const hay = address.toLowerCase();
+//   const out: string[] = [];
+//   const pushIfNew = (v?: string) => {
+//     const t = String(v || "").trim();
+//     if (!t) return;
+//     if (hay.includes(t.toLowerCase())) return;
+//     out.push(t);
+//   };
+//   pushIfNew(city);
+//   pushIfNew(state);
+//   pushIfNew(pincode);
+//   return out;
+// }
+
+// function getTrackingUrl(): string {
+//   const base = (
+//     process.env.NEXT_PUBLIC_APP_URL || "http://localhost:3000"
+//   ).replace(/\/$/, "");
+//   return `${base}/logistics/track`;
+// }
+
+// function loadSreshtaLogoBytes(): Uint8Array | null {
+//   const candidates = [
+//     join(process.cwd(), "public", "images", "sreshta-logistics-logo.png"),
+//     join(process.cwd(), "public", "images", "sreshta-logistics-logo.PNG"),
+//     join(process.cwd(), "public", "sreshta-logistics-logo.png"),
+//   ];
+//   for (const p of candidates) {
+//     if (existsSync(p)) return readFileSync(p);
+//   }
+//   return null;
+// }
+
+// function drawSreshtaLogo(
+//   page: PDFPage,
+//   logoImage: PDFImage | null,
+//   bold: PDFFont,
+//   font: PDFFont,
+//   x: number,
+//   y: number,
+//   boxW: number,
+//   boxH: number,
+// ) {
+//   const navy = rgb(0.024, 0.157, 0.298);
+//   const teal = rgb(0.03, 0.5, 0.53);
+
+//   if (logoImage) {
+//     const scale = Math.min(
+//       (boxW * 0.95) / logoImage.width,
+//       (boxH * 0.95) / logoImage.height,
+//     );
+//     const drawW = logoImage.width * scale;
+//     const drawH = logoImage.height * scale;
+//     page.drawImage(logoImage, {
+//       x: x + (boxW - drawW) / 2,
+//       y: y + (boxH - drawH) / 2,
+//       width: drawW,
+//       height: drawH,
+//     });
+//     return;
+//   }
+
+//   page.drawText("SRESHTA", {
+//     x: x + 8,
+//     y: y + boxH / 2 + 4,
+//     size: 13,
+//     font: bold,
+//     color: navy,
+//   });
+//   page.drawText("LOGISTICS", {
+//     x: x + 8,
+//     y: y + boxH / 2 - 10,
+//     size: 9,
+//     font,
+//     color: teal,
+//   });
+// }
+
+// /* ------------------------------------------------------------------ */
+// /*  Main generator                                                     */
+// /* ------------------------------------------------------------------ */
+
+// export async function generateAwbLabelPdf(
+//   data: AwbLabelData,
+// ): Promise<Uint8Array> {
+//   const pdf = await PDFDocument.create();
+//   const page = pdf.addPage([595.28, 841.89]);
+//   const { width, height } = page.getSize();
+
+//   const font = await pdf.embedFont(StandardFonts.Helvetica);
+//   const bold = await pdf.embedFont(StandardFonts.HelveticaBold);
+//   const ocrFont = await pdf.embedFont(StandardFonts.CourierBold);
+
+//   let logoImage: PDFImage | null = null;
+//   try {
+//     const bytes = loadSreshtaLogoBytes();
+//     if (bytes) logoImage = await pdf.embedPng(bytes);
+//   } catch (err) {
+//     console.warn("Could not embed Sreshta logistics logo:", err);
+//   }
+
+//   const margin = 12;
+//   const black = rgb(0, 0, 0);
+//   const gray = rgb(0.3, 0.3, 0.3);
+//   const lightGray = rgb(0.92, 0.92, 0.92);
+//   const linkBlue = rgb(0.0, 0.2, 0.75);
+
+//   const pieces = Number(data.pieces) > 0 ? Number(data.pieces) : 1;
+//   const actualW = Number(data.actualWeight) || 0;
+//   const chargeW = Math.max(Number(data.chargeableWeight) || 0, actualW);
+//   // Amount on label = proforma items total (passed as declaredValue from API)
+//   const declared = Number(data.declaredValue) || 0;
+//   const currency = (data.currency || "INR").toUpperCase();
+//   const contentText = (data.content || "").trim() || "—";
+//   const csb = (data.csbType || "CSB4").toUpperCase();
+//   const awb = String(data.awb || "").trim().toUpperCase();
+//   const trackingUrl = getTrackingUrl();
+
+//   const drawText = (
+//     text: string,
+//     x: number,
+//     y: number,
+//     size = 8,
+//     isBold = false,
+//     color = black,
+//   ) => {
+//     const t = String(text ?? "");
+//     if (!t) return;
+//     page.drawText(t, {
+//       x,
+//       y,
+//       size,
+//       font: isBold ? bold : font,
+//       color,
+//     });
+//   };
+
+//   const cell = (
+//     x: number,
+//     y: number,
+//     w: number,
+//     h: number,
+//     borderWidth = 0.9,
+//     fill?: ReturnType<typeof rgb>,
+//   ) => {
+//     page.drawRectangle({
+//       x,
+//       y,
+//       width: w,
+//       height: h,
+//       borderColor: black,
+//       borderWidth,
+//       color: fill,
+//     });
+//   };
+
+//   const contentW = width - margin * 2;
+//   let y = height - margin;
+
+//   /* 1) HEADER BAR */
+//   const headerH = 15;
+//   cell(margin, y - headerH, contentW, headerH, 0.75);
+//   drawText(formatDateOnly(data.printedAt || data.bookDate), margin + 3, y - 10.5, 6.5);
+//   drawText(trackingUrl, margin + 68, y - 10.5, 6.5, false, linkBlue);
+
+//   const title = "Shipment Label";
+//   const titleW = bold.widthOfTextAtSize(title, 8.5);
+//   drawText(title, margin + (contentW - titleW) / 2, y - 10.5, 8.5, true);
+
+//   const printed = `Printed on  ${formatPrintedAt(data.printedAt)}`;
+//   const printedW = font.widthOfTextAtSize(printed, 6.5);
+//   drawText(printed, margin + contentW - printedW - 4, y - 10.5, 6.5);
+//   y -= headerH;
+
+//   /* 2) ACCOUNT | ORIGIN + AWB | CUSTOMER REFERENCE */
+//   const row1H = 34;
+//   const colAcc = 148;
+//   const colOrigin = 178;
+//   const colRef = contentW - colAcc - colOrigin;
+
+//   cell(margin, y - row1H, colAcc, row1H);
+//   drawText("1.  ACCOUNT NUMBER", margin + 4, y - 11, 6.5, true);
+//   drawText(
+//     (data.accountCode || "—").toUpperCase(),
+//     margin + 4,
+//     y - 27,
+//     12,
+//     true,
+//   );
+
+//   cell(margin + colAcc, y - row1H, colOrigin, row1H);
+//   drawText(
+//     (data.origin || "—").toUpperCase(),
+//     margin + colAcc + 6,
+//     y - 12,
+//     11,
+//     true,
+//   );
+//   drawText(awb || "—", margin + colAcc + 6, y - 28, 11, true);
+
+//   cell(margin + colAcc + colOrigin, y - row1H, colRef, row1H);
+//   drawText(
+//     "CUSTOMER REFERENCE",
+//     margin + colAcc + colOrigin + 5,
+//     y - 11,
+//     6.5,
+//     true,
+//   );
+//   drawText(
+//     (data.customerReference || "SRESHTA COURIERS").toUpperCase(),
+//     margin + colAcc + colOrigin + 5,
+//     y - 27,
+//     10,
+//     true,
+//   );
+//   y -= row1H;
+
+//   /* 3) SHIPPER | CONSIGNEE | SERVICE TYPE */
+//   const leftW = 186;
+//   const midW = 196;
+//   const rightW = contentW - leftW - midW;
+//   const topH = 124;
+//   const stripW = 11;
+
+//   cell(margin, y - topH, leftW, topH);
+//   cell(margin, y - topH, stripW, topH, 0.55, lightGray);
+//   ["S", "H", "I", "P", "P", "E", "R"].forEach((ch, i) => {
+//     drawText(ch, margin + 2.2, y - 14 - i * 14, 8, true);
+//   });
+
+//   const shipX = margin + stripW + 4;
+//   drawText("1.", shipX, y - 12, 8, true);
+//   drawText((data.shipperName || "").toUpperCase(), shipX + 12, y - 12, 8, true);
+
+//   let sy = y - 24;
+//   wrapText(data.shipperAddress || "", 30)
+//     .slice(0, 5)
+//     .forEach((line) => {
+//       drawText(line.toUpperCase(), shipX, sy, 7);
+//       sy -= 9.5;
+//     });
+//   extraLocationLines(
+//     data.shipperAddress || "",
+//     data.shipperCity,
+//     data.shipperState,
+//     data.shipperPincode,
+//   ).forEach((line) => {
+//     if (sy < y - topH + 14) return;
+//     drawText(line.toUpperCase(), shipX, sy, 7);
+//     sy -= 9.5;
+//   });
+//   if (data.shipperPhone && sy >= y - topH + 11) {
+//     drawText(String(data.shipperPhone), shipX, sy, 7);
+//   }
+
+//   cell(margin + leftW, y - topH, midW, topH);
+//   cell(margin + leftW, y - topH, stripW, topH, 0.55, lightGray);
+//   ["C", "O", "N", "S", "I", "G", "N", "E", "E"].forEach((ch, i) => {
+//     drawText(ch, margin + leftW + 2, y - 13 - i * 11.5, 7.5, true);
+//   });
+
+//   const consX = margin + leftW + stripW + 4;
+//   drawText("2.", consX, y - 12, 8, true);
+//   drawText(
+//     (data.consigneeName || "").toUpperCase(),
+//     consX + 12,
+//     y - 12,
+//     8,
+//     true,
+//   );
+
+//   let cy = y - 24;
+//   wrapText(data.consigneeAddress || "", 30)
+//     .slice(0, 5)
+//     .forEach((line) => {
+//       drawText(line.toUpperCase(), consX, cy, 7);
+//       cy -= 9.5;
+//     });
+//   extraLocationLines(
+//     data.consigneeAddress || "",
+//     data.consigneeCity,
+//     data.consigneeState,
+//     data.consigneePincode,
+//   ).forEach((line) => {
+//     if (cy < y - topH + 14) return;
+//     drawText(line.toUpperCase(), consX, cy, 7);
+//     cy -= 9.5;
+//   });
+
+//   const consigneePhone = String(
+//     data.consigneeMobile || data.consigneePhone || "",
+//   ).trim();
+//   if (consigneePhone && cy >= y - topH + 11) {
+//     drawText(consigneePhone, consX, cy, 7);
+//   }
+
+//   const svcX = margin + leftW + midW;
+//   cell(svcX, y - topH, rightW, topH);
+//   cell(svcX, y - 14, rightW, 14, 0.7, lightGray);
+//   drawText("SERVICE TYPE", svcX + 4, y - 10, 6.5, true);
+
+//   cell(svcX, y - 32, rightW, 18);
+//   const serviceLine = (
+//     data.serviceType ||
+//     data.product ||
+//     "INTERNATIONAL PRIORITY"
+//   ).toUpperCase();
+//   drawText(serviceLine, svcX + 4, y - 26, 7.5, true);
+
+//   // cell(svcX, y - 50, rightW, 18);
+//   // drawText((data.vendor || "—").toUpperCase(), svcX + 4, y - 44, 7);
+
+//   // Vendor / logistics company row
+//   cell(svcX, y - 50, rightW, 18);
+
+//   const vendorName = (
+//     data.vendor?.trim() || "SRESHTA LOGISTICS"
+//   ).toUpperCase();
+
+//   drawText(vendorName, svcX + 4, y - 44, 7, true);
+
+//   cell(svcX, y - 88, rightW, 38);
+//   drawText("FULL DESCRIPTION OF CONTENTS :-", svcX + 4, y - 58, 6, true);
+//   wrapText(contentText.toUpperCase(), 28)
+//     .slice(0, 2)
+//     .forEach((line, i) => {
+//       drawText(line, svcX + 4, y - 70 - i * 10, 7.5);
+//     });
+
+//   cell(svcX, y - topH, rightW, topH - 88);
+//   drawText("SPECIAL INSTRUCTIONS :-", svcX + 4, y - 98, 6, true);
+//   wrapText((data.specialInstructions || "").toUpperCase(), 28)
+//     .slice(0, 2)
+//     .forEach((line, i) => {
+//       drawText(line, svcX + 4, y - 110 - i * 10, 7);
+//     });
+
+//   y -= topH;
+
+//   /* 4) AUTH/POD | DECLARED+CSB+BARCODE | SIZE & WEIGHT */
+//   const bottomH = 220;
+
+//   cell(margin, y - bottomH, leftW, bottomH);
+//   drawText(
+//     "3.  SENDER'S AUTHORISATION AND SIGNATURE",
+//     margin + 3,
+//     y - 11,
+//     5.8,
+//     true,
+//   );
+
+//   const logoW = 168;
+//   const logoH = 62;
+//   const logoX = margin + (leftW - logoW) / 2;
+//   const logoY = y - 82;
+//   drawSreshtaLogo(page, logoImage, bold, font, logoX, logoY, logoW, logoH);
+
+//   drawText("SENDER'S SIGNATURE", margin + 5, y - 100, 7.5);
+//   page.drawLine({
+//     start: { x: margin + 5, y: y - 112 },
+//     end: { x: margin + leftW - 6, y: y - 112 },
+//     thickness: 0.7,
+//     color: black,
+//   });
+//   drawText("DATE", margin + 5, y - 126, 7.5);
+//   drawText("PROOF OF DELIVERY (POD)", margin + 5, y - 148, 8, true);
+//   drawText("RECEIVER'S SIGNATURE", margin + 5, y - 164, 7.5);
+//   page.drawLine({
+//     start: { x: margin + 5, y: y - 176 },
+//     end: { x: margin + leftW - 6, y: y - 176 },
+//     thickness: 0.7,
+//     color: black,
+//   });
+//   {
+//     const pod = formatPodDateTime(data.printedAt);
+//     drawText(`DATE  ${pod.date}`, margin + 5, y - 192, 6.5);
+//     drawText(`TIME  ${pod.time} ${pod.meridiem}`, margin + 88, y - 192, 6.5);
+//   }
+//   drawText(
+//     "(CAPITAL LETTERS PLEASE IMPORTANT)",
+//     margin + 5,
+//     y - 210,
+//     5,
+//     false,
+//     gray,
+//   );
+
+//   const midX = margin + leftW;
+//   cell(midX, y - bottomH, midW, bottomH);
+
+//   // Declared value = proforma total (all boxes)
+//   cell(midX, y - 52, midW, 52, 0.95);
+//   drawText("DECLARED VALUE FOR", midX + 14, y - 16, 7.5, true);
+//   drawText("CUSTOMS AND CURRENCY", midX + 14, y - 28, 7.5, true);
+//   const declaredLabel =
+//     declared > 0 ? `${declared.toFixed(0)} ${currency}` : `0 ${currency}`;
+//   const declaredTw = bold.widthOfTextAtSize(declaredLabel, 13);
+//   drawText(declaredLabel, midX + (midW - declaredTw) / 2, y - 46, 13, true);
+
+//   const csbBoxW = 118;
+//   const csbBoxH = 36;
+//   const csbBoxX = midX + (midW - csbBoxW) / 2;
+//   const csbBoxY = y - 108;
+//   cell(csbBoxX, csbBoxY, csbBoxW, csbBoxH, 2.0);
+//   const csbTw = bold.widthOfTextAtSize(csb, 16);
+//   drawText(csb, csbBoxX + (csbBoxW - csbTw) / 2, csbBoxY + 12, 16, true);
+
+//   // Code-128B barcode — tighter gap to AWB text under it
+//   const barcodePayload = sanitizeBarcodeText(awb);
+//   const barH = 44;
+//   const barY = y - bottomH + 28; // was +34 → slightly lower, less empty gap
+//   const barModule = 1.3;
+//   const pattern = encodeCode128B(barcodePayload);
+//   const quiet = barModule * 10;
+//   let module = barModule;
+//   let totalW = pattern.length * module + quiet * 2;
+//   const maxBarW = midW - 12;
+//   if (totalW > maxBarW) {
+//     module = (maxBarW - quiet * 2) / Math.max(pattern.length, 1);
+//     module = Math.max(0.9, module);
+//     totalW = pattern.length * module + quiet * 2;
+//   }
+//   const quietActual = module * 10;
+//   const barX = midX + (midW - totalW) / 2;
+//   const drawnW = drawBarcode(
+//     page,
+//     barX,
+//     barY,
+//     barH,
+//     barcodePayload,
+//     module,
+//   );
+//   const bodyW = Math.max(40, drawnW - quietActual * 2);
+//   // Text closer under bars (was barY - 13 → barY - 8)
+//   // drawSpacedBarcodeText(
+//   //   page,
+//   //   barcodePayload,
+//   //   midX + midW / 2,
+//   //   barY - 8,
+//   //   bodyW,
+//   //   ocrFont,
+//   //   11,
+//   // );
+
+//     drawSpacedBarcodeText(
+//     page,
+//     barcodePayload,
+//     midX + midW / 2,
+//     barY - 18, // more space under bars (was -8)
+//     bodyW * 0.72, // narrower target → less stretch between digits
+//     ocrFont,
+//     11,
+//   );
+
+//   // const szX = margin + leftW + midW;
+//   // cell(szX, y - bottomH, rightW, bottomH);
+//   // cell(szX, y - 16, rightW, 16, 0.7, lightGray);
+//   // drawText("SIZE & WEIGHT", szX + 5, y - 12, 7, true);
+
+//   // cell(szX, y - 42, rightW, 26);
+//   // drawText("Pieces :", szX + 6, y - 33, 9);
+//   // drawText(String(pieces), szX + 72, y - 33, 11, true);
+
+//   // cell(szX, y - 68, rightW, 26);
+//   // drawText("Weight", szX + 6, y - 59, 9);
+//   // drawText(actualW.toFixed(3), szX + 58, y - 59, 11, true);
+//   // drawText("Kgs", szX + rightW - 30, y - 59, 9);
+
+//   // cell(szX, y - 112, rightW, 44);
+//   // const dim = String(data.dimensions || "").trim();
+//   // if (dim) {
+//   //   drawText(dim, szX + 6, y - 92, 9);
+//   // }
+
+//   // cell(szX, y - bottomH, rightW, bottomH - 112);
+//   // drawText("CHARGED WEIGHT", szX + 6, y - 132, 8, true);
+//   // const chargeLabel = chargeW.toFixed(2);
+//   // const chargeTw = bold.widthOfTextAtSize(chargeLabel, 18);
+//   // drawText(
+//   //   chargeLabel,
+//   //   szX + (rightW - chargeTw) / 2,
+//   //   y - 172,
+//   //   18,
+//   //   true,
+//   // );
+
+//     const szX = margin + leftW + midW;
+//   cell(szX, y - bottomH, rightW, bottomH);
+//   cell(szX, y - 16, rightW, 16, 0.7, lightGray);
+//   drawText("SIZE & WEIGHT", szX + 5, y - 12, 7, true);
+
+//   // Pieces
+//   cell(szX, y - 40, rightW, 24);
+//   drawText("Pieces :", szX + 6, y - 32, 9);
+//   drawText(String(pieces), szX + 72, y - 32, 11, true);
+
+//   // Actual weight
+//   cell(szX, y - 64, rightW, 24);
+//   drawText("Weight", szX + 6, y - 56, 9);
+//   drawText(actualW.toFixed(3), szX + 58, y - 56, 11, true);
+//   drawText("Kgs", szX + rightW - 30, y - 56, 9);
+
+//   // Dimensions — multi-line (L*W*H*qty=vol)
+//   const dimLines = String(data.dimensions || "")
+//     .split(/\n+/)
+//     .map((s) => s.trim())
+//     .filter(Boolean)
+//     .slice(0, 8); // max 8 lines so layout stays stable
+
+//   // More space for multi-piece (was 44)
+//   const dimBoxH = Math.max(48, 12 + dimLines.length * 11);
+//   const dimBoxTop = 64;
+//   const dimBoxBottom = dimBoxTop + dimBoxH;
+
+//   cell(szX, y - dimBoxBottom, rightW, dimBoxH);
+
+//   if (dimLines.length > 0) {
+//     dimLines.forEach((line, i) => {
+//       drawText(line, szX + 5, y - dimBoxTop - 12 - i * 11, 7.5);
+//     });
+//   }
+
+//   // Charged weight (rest of column)
+//   const chargedTop = dimBoxBottom;
+//   cell(szX, y - bottomH, rightW, bottomH - chargedTop);
+//   drawText("CHARGED WEIGHT", szX + 6, y - chargedTop - 16, 8, true);
+
+//   const chargeLabel = chargeW.toFixed(2);
+//   const chargeTw = bold.widthOfTextAtSize(chargeLabel, 18);
+//   const chargeY = y - chargedTop - 16 - Math.min(48, (bottomH - chargedTop) / 2);
+//   drawText(
+//     chargeLabel,
+//     szX + (rightW - chargeTw) / 2,
+//     chargeY,
+//     18,
+//     true,
+//   );
+
+//   return pdf.save();
+// }
+
 import "server-only";
 import { readFileSync, existsSync } from "fs";
 import { join } from "path";
@@ -8150,12 +8979,8 @@ function drawSpacedBarcodeText(
 
   const charWidths = chars.map((c) => font.widthOfTextAtSize(c, size));
   const totalCharW = charWidths.reduce((a, b) => a + b, 0);
-  // let gap =
-  //   chars.length > 1 ? (targetWidth - totalCharW) / (chars.length - 1) : 0;
-  // gap = Math.min(Math.max(gap, 2), 14);
-    let gap =
+  let gap =
     chars.length > 1 ? (targetWidth - totalCharW) / (chars.length - 1) : 0;
-  // Tighter digit spacing (was min 2 / max 14)
   gap = Math.min(Math.max(gap, 1), 4);
 
   const usedW =
@@ -8373,7 +9198,6 @@ export async function generateAwbLabelPdf(
   const pieces = Number(data.pieces) > 0 ? Number(data.pieces) : 1;
   const actualW = Number(data.actualWeight) || 0;
   const chargeW = Math.max(Number(data.chargeableWeight) || 0, actualW);
-  // Amount on label = proforma items total (passed as declaredValue from API)
   const declared = Number(data.declaredValue) || 0;
   const currency = (data.currency || "INR").toUpperCase();
   const contentText = (data.content || "").trim() || "—";
@@ -8564,6 +9388,7 @@ export async function generateAwbLabelPdf(
   cell(svcX, y - 14, rightW, 14, 0.7, lightGray);
   drawText("SERVICE TYPE", svcX + 4, y - 10, 6.5, true);
 
+  // Service / product (e.g. FEDEX EXPRESS, SPX ECONOMY)
   cell(svcX, y - 32, rightW, 18);
   const serviceLine = (
     data.serviceType ||
@@ -8572,8 +9397,9 @@ export async function generateAwbLabelPdf(
   ).toUpperCase();
   drawText(serviceLine, svcX + 4, y - 26, 7.5, true);
 
+  // Company line under service type — always Sreshta Logistics (not carrier)
   cell(svcX, y - 50, rightW, 18);
-  drawText((data.vendor || "—").toUpperCase(), svcX + 4, y - 44, 7);
+  drawText("SRESHTA LOGISTICS", svcX + 4, y - 44, 7.5, true);
 
   cell(svcX, y - 88, rightW, 38);
   drawText("FULL DESCRIPTION OF CONTENTS :-", svcX + 4, y - 58, 6, true);
@@ -8644,7 +9470,6 @@ export async function generateAwbLabelPdf(
   const midX = margin + leftW;
   cell(midX, y - bottomH, midW, bottomH);
 
-  // Declared value = proforma total (all boxes)
   cell(midX, y - 52, midW, 52, 0.95);
   drawText("DECLARED VALUE FOR", midX + 14, y - 16, 7.5, true);
   drawText("CUSTOMS AND CURRENCY", midX + 14, y - 28, 7.5, true);
@@ -8661,10 +9486,9 @@ export async function generateAwbLabelPdf(
   const csbTw = bold.widthOfTextAtSize(csb, 16);
   drawText(csb, csbBoxX + (csbBoxW - csbTw) / 2, csbBoxY + 12, 16, true);
 
-  // Code-128B barcode — tighter gap to AWB text under it
   const barcodePayload = sanitizeBarcodeText(awb);
   const barH = 44;
-  const barY = y - bottomH + 28; // was +34 → slightly lower, less empty gap
+  const barY = y - bottomH + 28;
   const barModule = 1.3;
   const pattern = encodeCode128B(barcodePayload);
   const quiet = barModule * 10;
@@ -8687,23 +9511,13 @@ export async function generateAwbLabelPdf(
     module,
   );
   const bodyW = Math.max(40, drawnW - quietActual * 2);
-  // Text closer under bars (was barY - 13 → barY - 8)
-  // drawSpacedBarcodeText(
-  //   page,
-  //   barcodePayload,
-  //   midX + midW / 2,
-  //   barY - 8,
-  //   bodyW,
-  //   ocrFont,
-  //   11,
-  // );
 
-    drawSpacedBarcodeText(
+  drawSpacedBarcodeText(
     page,
     barcodePayload,
     midX + midW / 2,
-    barY - 18, // more space under bars (was -8)
-    bodyW * 0.72, // narrower target → less stretch between digits
+    barY - 18,
+    bodyW * 0.72,
     ocrFont,
     11,
   );
@@ -8713,29 +9527,44 @@ export async function generateAwbLabelPdf(
   cell(szX, y - 16, rightW, 16, 0.7, lightGray);
   drawText("SIZE & WEIGHT", szX + 5, y - 12, 7, true);
 
-  cell(szX, y - 42, rightW, 26);
-  drawText("Pieces :", szX + 6, y - 33, 9);
-  drawText(String(pieces), szX + 72, y - 33, 11, true);
+  cell(szX, y - 40, rightW, 24);
+  drawText("Pieces :", szX + 6, y - 32, 9);
+  drawText(String(pieces), szX + 72, y - 32, 11, true);
 
-  cell(szX, y - 68, rightW, 26);
-  drawText("Weight", szX + 6, y - 59, 9);
-  drawText(actualW.toFixed(3), szX + 58, y - 59, 11, true);
-  drawText("Kgs", szX + rightW - 30, y - 59, 9);
+  cell(szX, y - 64, rightW, 24);
+  drawText("Weight", szX + 6, y - 56, 9);
+  drawText(actualW.toFixed(3), szX + 58, y - 56, 11, true);
+  drawText("Kgs", szX + rightW - 30, y - 56, 9);
 
-  cell(szX, y - 112, rightW, 44);
-  const dim = String(data.dimensions || "").trim();
-  if (dim) {
-    drawText(dim, szX + 6, y - 92, 9);
+  const dimLines = String(data.dimensions || "")
+    .split(/\n+/)
+    .map((s) => s.trim())
+    .filter(Boolean)
+    .slice(0, 8);
+
+  const dimBoxH = Math.max(48, 12 + dimLines.length * 11);
+  const dimBoxTop = 64;
+  const dimBoxBottom = dimBoxTop + dimBoxH;
+
+  cell(szX, y - dimBoxBottom, rightW, dimBoxH);
+
+  if (dimLines.length > 0) {
+    dimLines.forEach((line, i) => {
+      drawText(line, szX + 5, y - dimBoxTop - 12 - i * 11, 7.5);
+    });
   }
 
-  cell(szX, y - bottomH, rightW, bottomH - 112);
-  drawText("CHARGED WEIGHT", szX + 6, y - 132, 8, true);
+  const chargedTop = dimBoxBottom;
+  cell(szX, y - bottomH, rightW, bottomH - chargedTop);
+  drawText("CHARGED WEIGHT", szX + 6, y - chargedTop - 16, 8, true);
+
   const chargeLabel = chargeW.toFixed(2);
   const chargeTw = bold.widthOfTextAtSize(chargeLabel, 18);
+  const chargeY = y - chargedTop - 16 - Math.min(48, (bottomH - chargedTop) / 2);
   drawText(
     chargeLabel,
     szX + (rightW - chargeTw) / 2,
-    y - 172,
+    chargeY,
     18,
     true,
   );

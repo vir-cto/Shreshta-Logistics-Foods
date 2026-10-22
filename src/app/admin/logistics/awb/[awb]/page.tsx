@@ -6372,6 +6372,15 @@ type AwbDetail = {
   service: string;
   origin: string;
   destination: string;
+  dimensions?: string;
+  rawPieces?: Array<{
+    quantity: number;
+    lengthCm: number;
+    widthCm: number;
+    heightCm: number;
+    division: number;
+    volumetricWeight: number;
+  }>;
   pieces: string;
   actualWeight: string;
   chargeableWeight: string;
@@ -6450,6 +6459,33 @@ function formatCurrency(amount: number): string {
     currency: "INR",
     maximumFractionDigits: 0,
   }).format(amount);
+}
+
+function formatPieceDimensions(pieces: unknown[]): string {
+  if (!Array.isArray(pieces) || pieces.length === 0) return "";
+
+  return pieces
+    .map((p) => {
+      const row = asRecord(p) || {};
+      const dims = asRecord(row.dimensions) || {};
+
+      const l = Number(row.lengthCm ?? dims.length ?? 0);
+      const w = Number(row.widthCm ?? dims.width ?? 0);
+      const h = Number(row.heightCm ?? dims.height ?? 0);
+      const qty = Math.max(1, Number(row.quantity ?? 1));
+      const division = Number(row.division ?? 5000) || 5000;
+
+      let vol = Number(row.volumetricWeight ?? 0);
+      if ((!Number.isFinite(vol) || vol <= 0) && l > 0 && w > 0 && h > 0) {
+        vol = Number(((l * w * h * qty) / division).toFixed(3));
+      }
+
+      if (l <= 0 && w <= 0 && h <= 0) return "";
+
+      return `${l}*${w}*${h}*${qty}=${Number(vol || 0).toFixed(3)}`;
+    })
+    .filter(Boolean)
+    .join("\n");
 }
 
 function formatWeight(value: number): string {
@@ -6553,6 +6589,24 @@ function normalizeShipment(
     ? shipment.pieces.length
     : Number(shipment.totalPieces || 0);
 
+    const rawPiecesArr = Array.isArray(shipment.pieces)
+    ? (shipment.pieces as Record<string, unknown>[])
+    : [];
+
+  const dimensionsText = formatPieceDimensions(rawPiecesArr);
+
+  const rawPieces = rawPiecesArr.map((row) => {
+    const dims = asRecord(row.dimensions) || {};
+    return {
+      quantity: Number(row.quantity ?? 1) || 1,
+      lengthCm: Number(row.lengthCm ?? dims.length ?? 0),
+      widthCm: Number(row.widthCm ?? dims.width ?? 0),
+      heightCm: Number(row.heightCm ?? dims.height ?? 0),
+      division: Number(row.division ?? 5000) || 5000,
+      volumetricWeight: Number(row.volumetricWeight ?? 0),
+    };
+  });
+
   const actualWeightKg = Number(
     shipment.actualWeight ?? shipment.actualWeightKg ?? 0,
   );
@@ -6646,6 +6700,8 @@ function normalizeShipment(
       sender.name || sender.companyName || shipment.senderName,
       "—",
     ),
+    dimensions: dimensionsText,
+    rawPieces,
     senderAddress: text(
       [
         sender.addressLine1,
@@ -6926,6 +6982,7 @@ export default function AWBDetailPage() {
           customerCode: detail.accountCode,
           customerReference: detail.customerName,
           bookDate: detail.bookDate,
+          dimensions: detail.dimensions || "",
           shipperName: detail.senderName,
           shipperAddress: detail.senderAddress,
           shipperCity: detail.senderCity,

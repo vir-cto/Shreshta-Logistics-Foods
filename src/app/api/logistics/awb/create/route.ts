@@ -6606,7 +6606,20 @@ export async function POST(request: NextRequest) {
       };
     });
 
-    const actualWeightKg = pieces.reduce(
+    // const actualWeightKg = pieces.reduce(
+    //   (total, piece) => total + piece.actualWeight * piece.quantity,
+    //   0,
+    // );
+    // const volumetricWeightKg = pieces.reduce(
+    //   (total, piece) => total + (piece.volumetricWeight ?? 0),
+    //   0,
+    // );
+    // const chargeableWeightKg = calculateChargeableWeight(
+    //   actualWeightKg,
+    //   volumetricWeightKg,
+    // );
+
+        const actualWeightKg = pieces.reduce(
       (total, piece) => total + piece.actualWeight * piece.quantity,
       0,
     );
@@ -6614,10 +6627,26 @@ export async function POST(request: NextRequest) {
       (total, piece) => total + (piece.volumetricWeight ?? 0),
       0,
     );
-    const chargeableWeightKg = calculateChargeableWeight(
-      actualWeightKg,
-      volumetricWeightKg,
+
+    // CORRECT — same rule as PieceDetails / booking form:
+    // chargeable = SUM of max(actual, volumetric) per piece
+    const fromBody = Number(body.chargeableWeight);
+    const fromPieces = pieces.reduce(
+      (sum, p) => sum + Number(p.chargeableWeight ?? 0),
+      0,
     );
+
+    const chargeableWeightKg =
+      Number.isFinite(fromBody) && fromBody > 0
+        ? Number(fromBody.toFixed(3))
+        : Number.isFinite(fromPieces) && fromPieces > 0
+          ? Number(fromPieces.toFixed(3))
+          : Number(
+              calculateChargeableWeight(
+                actualWeightKg,
+                volumetricWeightKg,
+              ).toFixed(3),
+            );
 
     const gstin =
       body.gstin?.trim() || str(shipper.gstin).toUpperCase() || undefined;
