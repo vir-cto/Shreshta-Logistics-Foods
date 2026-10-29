@@ -699,6 +699,610 @@
 //   return lines;
 // }
 
+// import "server-only";
+
+// import {
+//   PDFDocument,
+//   StandardFonts,
+//   rgb,
+// } from "pdf-lib";
+
+// import { numberToWords } from "@/utils/numberToWords";
+
+// export type ProformaItem = {
+//   description: string;
+//   shopName?: string;
+//   shopAddress?: string;
+//   hsCode: string;
+//   quantity: number;
+//   weight?: number;
+//   unitRate: number;
+//   amount: number;
+//   boxNo?: number;
+// };
+
+// export type ProformaInvoiceData = {
+//   awb: string;
+//   invoiceNo: string;
+//   invoiceDate: string;
+//   accountCode?: string;
+//   exporterRef?: string;
+
+//   shipperName: string;
+//   shipperAddress: string;
+//   shipperPhone?: string;
+//   shipperTaxId?: string; // Aadhaar / GSTIN
+//   shipperCity?: string;
+//   shipperState?: string;
+//   shipperPincode?: string;
+//   shipperCountry?: string;
+
+//   consigneeName: string;
+//   consigneeAddress: string;
+//   consigneeCity?: string;
+//   consigneeState?: string;
+//   consigneePincode?: string;
+//   consigneeCountry?: string;
+//   consigneePhone?: string;
+
+//   preCarriageBy?: string;
+//   placeOfLoading?: string;
+//   portOfDischarge?: string;
+//   finalDestination?: string;
+//   countryOfOrigin?: string;
+//   countryOfDestination?: string;
+//   termOfDelivery?: string;
+//   otherReference?: string;
+//   vesselFlightNo?: string;
+//   portOfReceipt?: string;
+
+//   totalPieces?: number;
+//   packageType?: string;
+//   actualWeight?: number;
+//   chargeableWeight?: number;
+//   declaredValue?: number;
+
+//   items: ProformaItem[];
+//   totalAmount: number;
+// };
+
+// /* ------------------------------------------------------------------ */
+
+// function wrapText(text: string, maxChars: number): string[] {
+//   if (!text) return [];
+//   const words = String(text).split(/\s+/);
+//   const lines: string[] = [];
+//   let current = "";
+//   for (const word of words) {
+//     const next = (current + " " + word).trim();
+//     if (next.length <= maxChars) {
+//       current = next;
+//     } else {
+//       if (current) lines.push(current);
+//       current = word;
+//     }
+//   }
+//   if (current) lines.push(current);
+//   return lines;
+// }
+
+// function buildFullDescription(item: ProformaItem): string {
+//   const parts: string[] = [item.description || ""];
+//   if (item.shopName) {
+//     parts.push(`_SHOP NAME:${item.shopName}`);
+//   }
+//   if (item.shopAddress) {
+//     parts.push(`,ADDRESS:${item.shopAddress}`);
+//   }
+//   return parts.join("");
+// }
+
+// /* ------------------------------------------------------------------ */
+
+// export async function generateProformaInvoicePdf(
+//   data: ProformaInvoiceData,
+// ): Promise<Uint8Array> {
+//   const pdf = await PDFDocument.create();
+//   const page = pdf.addPage([595.28, 841.89]); // A4
+//   const { width, height } = page.getSize();
+
+//   const font = await pdf.embedFont(StandardFonts.Helvetica);
+//   const bold = await pdf.embedFont(StandardFonts.HelveticaBold);
+
+//   const margin = 18;
+//   const black = rgb(0, 0, 0);
+//   const gray = rgb(0.35, 0.35, 0.35);
+//   const lightGray = rgb(0.94, 0.94, 0.94);
+
+//   const text = (
+//     str: string,
+//     x: number,
+//     y: number,
+//     size = 8,
+//     isBold = false,
+//     color = black,
+//   ) => {
+//     const t = String(str ?? "");
+//     if (!t) return;
+//     page.drawText(t, {
+//       x,
+//       y,
+//       size,
+//       font: isBold ? bold : font,
+//       color,
+//     });
+//   };
+
+//   const rect = (
+//     x: number,
+//     y: number,
+//     w: number,
+//     h: number,
+//     borderWidth = 0.8,
+//     fill?: ReturnType<typeof rgb>,
+//   ) => {
+//     page.drawRectangle({
+//       x,
+//       y,
+//       width: w,
+//       height: h,
+//       borderColor: black,
+//       borderWidth,
+//       color: fill,
+//     });
+//   };
+
+//   const contentW = width - margin * 2;
+//   let y = height - margin;
+
+//   /* ================================================================
+//      TOP: AWB number (left) + INVOICE title (center)
+//      ================================================================ */
+//   text(data.awb, margin, y - 12, 10, true);
+//   text("INVOICE", width / 2 - 30, y - 14, 14, true);
+
+//   y -= 22;
+
+//   /* ================================================================
+//      SHIPPER (left)  |  INVOICE NO / DATE / EXPORTER'S REF / AWB / PCS (right)
+//      ================================================================ */
+//   const topBlockH = 95;
+//   const leftColW = 310;
+//   const rightColW = contentW - leftColW;
+
+//   // Shipper box
+//   rect(margin, y - topBlockH, leftColW, topBlockH);
+//   text("SHIPPER :", margin + 4, y - 12, 8, true);
+//   text(data.shipperName || "", margin + 4, y - 24, 9, true);
+
+//   const shipAddr = [
+//     data.shipperAddress,
+//     [data.shipperCity, data.shipperState, data.shipperPincode]
+//       .filter(Boolean)
+//       .join(", "),
+//     data.shipperCountry || "INDIA",
+//   ]
+//     .filter(Boolean)
+//     .join(" ");
+
+//   const shipLines = wrapText(shipAddr, 52);
+//   shipLines.forEach((line, i) => {
+//     text(line, margin + 4, y - 38 - i * 10, 8);
+//   });
+
+//   let shipY = y - 38 - shipLines.length * 10;
+//   if (data.shipperTaxId) {
+//     text(`Aadhaar Number- ${data.shipperTaxId}`, margin + 4, shipY - 2, 8);
+//     shipY -= 12;
+//   }
+//   if (data.shipperPhone) {
+//     text(`PH : ${data.shipperPhone}`, margin + 4, shipY - 2, 8);
+//   }
+
+//   // Right header boxes
+//   const rh = topBlockH / 2;
+
+//   // Row 1: Invoice No | Date | Exporter's Ref
+//   const r1w1 = rightColW * 0.38;
+//   const r1w2 = rightColW * 0.32;
+//   const r1w3 = rightColW - r1w1 - r1w2;
+
+//   rect(margin + leftColW, y - rh, r1w1, rh);
+//   text("INVOICE NO :", margin + leftColW + 4, y - 12, 7, true);
+//   text(data.invoiceNo || "", margin + leftColW + 4, y - 28, 9, true);
+
+//   rect(margin + leftColW + r1w1, y - rh, r1w2, rh);
+//   text("DATE :", margin + leftColW + r1w1 + 4, y - 12, 7, true);
+//   text(data.invoiceDate || "", margin + leftColW + r1w1 + 4, y - 28, 9, true);
+
+//   rect(margin + leftColW + r1w1 + r1w2, y - rh, r1w3, rh);
+//   text("EXPORTER'S REF :", margin + leftColW + r1w1 + r1w2 + 4, y - 12, 7, true);
+//   text(
+//     data.exporterRef || data.preCarriageBy || "FDX",
+//     margin + leftColW + r1w1 + r1w2 + 4,
+//     y - 28,
+//     9,
+//     true,
+//   );
+
+//   // Row 2: AWB No | PCS
+//   rect(margin + leftColW, y - topBlockH, r1w1 + r1w2, rh);
+//   text("AWB NO :", margin + leftColW + 4, y - rh - 12, 7, true);
+//   text(data.awb, margin + leftColW + 4, y - rh - 28, 10, true);
+
+//   rect(margin + leftColW + r1w1 + r1w2, y - topBlockH, r1w3, rh);
+//   text("PCS :", margin + leftColW + r1w1 + r1w2 + 4, y - rh - 12, 7, true);
+//   text(
+//     `${data.totalPieces ?? 1}   ${data.packageType || "PKT"}`,
+//     margin + leftColW + r1w1 + r1w2 + 4,
+//     y - rh - 28,
+//     9,
+//     true,
+//   );
+
+//   y -= topBlockH;
+
+//   /* ================================================================
+//      CONSIGNEE (left)  |  WEIGHT (right)
+//      ================================================================ */
+//   const consigneeH = 100;
+//   const weightW = 140;
+//   const consigneeW = contentW - weightW;
+
+//   rect(margin, y - consigneeH, consigneeW, consigneeH);
+//   text("CONSIGNEE :", margin + 4, y - 12, 8, true);
+//   text(data.consigneeName || "", margin + 4, y - 24, 9, true);
+
+//   const consAddrLines = wrapText(data.consigneeAddress || "", 52);
+//   consAddrLines.forEach((line, i) => {
+//     text(line, margin + 4, y - 36 - i * 10, 8);
+//   });
+
+//   let consY = y - 36 - consAddrLines.length * 10;
+//   const consCityLine = [
+//     data.consigneeCity,
+//     data.consigneeState,
+//     data.consigneePincode,
+//   ]
+//     .filter(Boolean)
+//     .join(" ");
+//   if (consCityLine) {
+//     text(consCityLine, margin + 4, consY - 2, 8);
+//     consY -= 11;
+//   }
+//   text(data.consigneeCountry || "U.S.A.", margin + 4, consY - 2, 8);
+//   consY -= 11;
+//   if (data.consigneePhone) {
+//     text(`PH : ${data.consigneePhone}`, margin + 4, consY - 2, 8);
+//   }
+
+//   // Weight box
+//   rect(margin + consigneeW, y - consigneeH, weightW, consigneeH);
+//   text("WEIGHT :", margin + consigneeW + 6, y - 14, 8, true);
+//   if (data.actualWeight != null) {
+//     text(
+//       `${Number(data.actualWeight).toFixed(3)} Kgs`,
+//       margin + consigneeW + 6,
+//       y - 32,
+//       10,
+//       true,
+//     );
+//   }
+
+//   y -= consigneeH;
+
+//   /* ================================================================
+//      Routing rows
+//      ================================================================ */
+//   const routeH = 28;
+
+//   // Row: PRE-CARRIAGE BY | PORT OF RECEIPT | OTHER REFERENCE
+//   const rw1 = contentW * 0.28;
+//   const rw2 = contentW * 0.28;
+//   const rw3 = contentW - rw1 - rw2;
+
+//   rect(margin, y - routeH, rw1, routeH);
+//   text("PRE-CARRIAGE BY :", margin + 3, y - 10, 6, true);
+//   text(data.preCarriageBy || "FDX", margin + 3, y - 22, 8);
+
+//   rect(margin + rw1, y - routeH, rw2, routeH);
+//   text("PORT OF RECEIPT BY PRE CAR", margin + rw1 + 3, y - 10, 6, true);
+//   text(data.portOfReceipt || "", margin + rw1 + 3, y - 22, 8);
+
+//   rect(margin + rw1 + rw2, y - routeH, rw3, routeH);
+//   text("OTHER REFERENCE (S)", margin + rw1 + rw2 + 3, y - 10, 6, true);
+//   text(
+//     data.otherReference || "UNSOLICITED GIFT - NOT FOR SALE",
+//     margin + rw1 + rw2 + 3,
+//     y - 22,
+//     7,
+//   );
+
+//   y -= routeH;
+
+//   // Row: VESSEL/FLIGHT | PLACE OF LOADING | COUNTRY OF ORIGIN | COUNTRY OF DESTINATION
+//   const r2w1 = contentW * 0.22;
+//   const r2w2 = contentW * 0.28;
+//   const r2w3 = contentW * 0.25;
+//   const r2w4 = contentW - r2w1 - r2w2 - r2w3;
+
+//   rect(margin, y - routeH, r2w1, routeH);
+//   text("VESSEL/FLIGHT NO.", margin + 3, y - 10, 6, true);
+//   text(data.vesselFlightNo || "", margin + 3, y - 22, 8);
+
+//   rect(margin + r2w1, y - routeH, r2w2, routeH);
+//   text("PLACE OF LOADING", margin + r2w1 + 3, y - 10, 6, true);
+//   text(
+//     data.placeOfLoading || "GUNTUR",
+//     margin + r2w1 + 3,
+//     y - 22,
+//     8,
+//     true,
+//   );
+
+//   rect(margin + r2w1 + r2w2, y - routeH, r2w3, routeH);
+//   text("COUNTRY OF ORIGIN", margin + r2w1 + r2w2 + 3, y - 10, 6, true);
+//   text(
+//     data.countryOfOrigin || "INDIA",
+//     margin + r2w1 + r2w2 + 3,
+//     y - 22,
+//     8,
+//     true,
+//   );
+
+//   rect(margin + r2w1 + r2w2 + r2w3, y - routeH, r2w4, routeH);
+//   text(
+//     "COUNTRY OF DESTINATION",
+//     margin + r2w1 + r2w2 + r2w3 + 3,
+//     y - 10,
+//     6,
+//     true,
+//   );
+//   text(
+//     data.countryOfDestination || data.consigneeCountry || "U.S.A.",
+//     margin + r2w1 + r2w2 + r2w3 + 3,
+//     y - 22,
+//     8,
+//     true,
+//   );
+
+//   y -= routeH;
+
+//   // Row: PORT OF DISCHARGE | FINAL DESTINATION | TERM OF DELIVERY
+//   const r3w1 = contentW * 0.28;
+//   const r3w2 = contentW * 0.36;
+//   const r3w3 = contentW - r3w1 - r3w2;
+
+//   rect(margin, y - routeH, r3w1, routeH);
+//   text("PORT OF DISCHARGE", margin + 3, y - 10, 6, true);
+//   text(
+//     data.portOfDischarge || data.placeOfLoading || "GUNTUR",
+//     margin + 3,
+//     y - 22,
+//     8,
+//   );
+
+//   rect(margin + r3w1, y - routeH, r3w2, routeH);
+//   text("FINAL DESTINATION", margin + r3w1 + 3, y - 10, 6, true);
+//   text(
+//     data.finalDestination || data.consigneeCountry || "U.S.A.",
+//     margin + r3w1 + 3,
+//     y - 22,
+//     8,
+//     true,
+//   );
+
+//   rect(margin + r3w1 + r3w2, y - routeH, r3w3, routeH);
+//   text("TERM OF DELIVERY AND PAYMENTS :", margin + r3w1 + r3w2 + 3, y - 10, 6, true);
+//   text(
+//     data.termOfDelivery || "CIF",
+//     margin + r3w1 + r3w2 + 3,
+//     y - 22,
+//     9,
+//     true,
+//   );
+
+//   y -= routeH + 2;
+
+//   /* ================================================================
+//      ITEMS TABLE HEADER
+//      ================================================================ */
+//   const col = {
+//     sr: margin,
+//     box: margin + 28,
+//     desc: margin + 52,
+//     weight: margin + 280,
+//     hs: margin + 330,
+//     qty: margin + 400,
+//     rate: margin + 440,
+//     amt: margin + 500,
+//   };
+
+//   const headerH = 18;
+//   rect(margin, y - headerH, contentW, headerH, 0.8, lightGray);
+
+//   text("SR NO", col.sr + 4, y - 13, 7, true);
+//   text("BOX", col.box + 2, y - 13, 7, true);
+//   text("DESCRIPTION OF GOODS", col.desc, y - 13, 7, true);
+//   text("WEIGHT", col.weight, y - 13, 7, true);
+//   text("HS CODE", col.hs, y - 13, 7, true);
+//   text("QTY", col.qty + 2, y - 13, 7, true);
+//   text("RATE", col.rate, y - 13, 7, true);
+//   text("AMT", col.amt, y - 13, 7, true);
+
+//   // vertical lines for header
+//   const vLines = [col.box, col.desc, col.weight, col.hs, col.qty, col.rate, col.amt];
+//   vLines.forEach((x) => {
+//     page.drawLine({
+//       start: { x, y },
+//       end: { x, y: y - headerH },
+//       thickness: 0.5,
+//       color: black,
+//     });
+//   });
+
+//   y -= headerH;
+
+//   /* ================================================================
+//      ITEM ROWS
+//      ================================================================ */
+//   const items = Array.isArray(data.items) ? data.items : [];
+//   const minRowH = 32;
+
+//   items.forEach((item, idx) => {
+//     const fullDesc = buildFullDescription(item);
+//     const descLines = wrapText(fullDesc, 42);
+//     const rowH = Math.max(minRowH, descLines.length * 10 + 10);
+
+//     // alternate background
+//     if (idx % 2 === 1) {
+//       page.drawRectangle({
+//         x: margin,
+//         y: y - rowH,
+//         width: contentW,
+//         height: rowH,
+//         color: rgb(0.97, 0.97, 0.97),
+//       });
+//     }
+
+//     // border
+//     rect(margin, y - rowH, contentW, rowH, 0.5);
+
+//     // vertical lines
+//     vLines.forEach((x) => {
+//       page.drawLine({
+//         start: { x, y },
+//         end: { x, y: y - rowH },
+//         thickness: 0.4,
+//         color: black,
+//       });
+//     });
+
+//     text(String(idx + 1), col.sr + 8, y - 14, 8);
+//     text(String(item.boxNo ?? 1), col.box + 8, y - 14, 8);
+
+//     descLines.forEach((line, i) => {
+//       text(line, col.desc + 2, y - 12 - i * 10, 7);
+//     });
+
+//     text(
+//       item.weight != null ? Number(item.weight).toFixed(3) : "",
+//       col.weight + 2,
+//       y - 14,
+//       8,
+//     );
+//     text(item.hsCode || "", col.hs + 2, y - 14, 7);
+//     text(String(item.quantity ?? ""), col.qty + 6, y - 14, 8);
+//     text(
+//       item.unitRate != null ? Number(item.unitRate).toFixed(2) : "",
+//       col.rate + 2,
+//       y - 14,
+//       8,
+//     );
+//     text(
+//       item.amount != null ? Number(item.amount).toFixed(2) : "",
+//       col.amt + 2,
+//       y - 14,
+//       8,
+//     );
+
+//     y -= rowH;
+//   });
+
+//   // empty rows if few items (keeps table height similar to sample)
+//   const emptyRows = Math.max(0, 4 - items.length);
+//   for (let i = 0; i < emptyRows; i++) {
+//     rect(margin, y - minRowH, contentW, minRowH, 0.5);
+//     vLines.forEach((x) => {
+//       page.drawLine({
+//         start: { x, y },
+//         end: { x, y: y - minRowH },
+//         thickness: 0.4,
+//         color: black,
+//       });
+//     });
+//     y -= minRowH;
+//   }
+
+//   /* ================================================================
+//      TOTAL
+//      ================================================================ */
+//   const totalH = 22;
+//   rect(margin, y - totalH, contentW, totalH);
+//   text("TOTAL =", margin + 420, y - 15, 9, true);
+//   text(
+//     Number(data.totalAmount || 0).toFixed(2),
+//     margin + 490,
+//     y - 15,
+//     10,
+//     true,
+//   );
+
+//   y -= totalH + 8;
+
+//   /* ================================================================
+//      AMOUNT IN WORDS
+//      ================================================================ */
+//   text("AMOUNT IN WORDS :", margin, y, 8, true);
+//   const words =
+//     numberToWords(data.totalAmount) ||
+//     `INR ${Number(data.totalAmount || 0).toFixed(2)} Only`;
+//   text(words, margin + 105, y, 8);
+
+//   y -= 22;
+
+//   /* ================================================================
+//      DECLARATION + SIGNATORY
+//      ================================================================ */
+//   const declH = 55;
+//   const declW = contentW * 0.62;
+//   const signW = contentW - declW;
+
+//   rect(margin, y - declH, declW, declH);
+//   text("DECLARATION :", margin + 4, y - 12, 7, true);
+//   const declLines = wrapText(
+//     "THIS IS CERTIFY THAT THE RATE AND QUANTITY MENTIONED IN THIS INVOICE IS TRUE AND CORRECT.",
+//     70,
+//   );
+//   declLines.forEach((line, i) => {
+//     text(line, margin + 4, y - 26 - i * 10, 7);
+//   });
+
+//   rect(margin + declW, y - declH, signW, declH);
+//   text(
+//     "This is system generated",
+//     margin + declW + 8,
+//     y - 16,
+//     7,
+//   );
+//   text(
+//     "invoice does not require",
+//     margin + declW + 8,
+//     y - 28,
+//     7,
+//   );
+//   text("signature.", margin + declW + 8, y - 40, 7);
+//   text(
+//     "AUTHORIZED SIGNATORY",
+//     margin + declW + 8,
+//     y - 52,
+//     8,
+//     true,
+//   );
+
+//   /* ---------- FOOTER ---------- */
+//   text(
+//     `Sreshta Logistics  •  System Generated Proforma  •  ${new Date().toLocaleString("en-IN")}`,
+//     margin,
+//     14,
+//     7,
+//     false,
+//     gray,
+//   );
+
+//   return pdf.save();
+// }
+
 import "server-only";
 
 import {
@@ -731,7 +1335,7 @@ export type ProformaInvoiceData = {
   shipperName: string;
   shipperAddress: string;
   shipperPhone?: string;
-  shipperTaxId?: string; // Aadhaar / GSTIN
+  shipperTaxId?: string;
   shipperCity?: string;
   shipperState?: string;
   shipperPincode?: string;
@@ -767,10 +1371,25 @@ export type ProformaInvoiceData = {
 };
 
 /* ------------------------------------------------------------------ */
+/*  WinAnsi-safe text (fixes 0x202A / invisible chars)                 */
+/* ------------------------------------------------------------------ */
+
+function toWinAnsiSafe(value: string): string {
+  return String(value ?? "")
+    .normalize("NFKC")
+    .replace(/[\u200B-\u200F\u202A-\u202E\u2060-\u206F\uFEFF]/g, "")
+    .replace(/[\u2018\u2019\u201A\u201B]/g, "'")
+    .replace(/[\u201C\u201D\u201E\u201F]/g, '"')
+    .replace(/[\u2013\u2014\u2212]/g, "-")
+    .replace(/\u00A0/g, " ")
+    .replace(/[^\x09\x0A\x0D\x20-\x7E\xA0-\xFF]/g, "");
+}
+
+/* ------------------------------------------------------------------ */
 
 function wrapText(text: string, maxChars: number): string[] {
   if (!text) return [];
-  const words = String(text).split(/\s+/);
+  const words = toWinAnsiSafe(text).split(/\s+/).filter(Boolean);
   const lines: string[] = [];
   let current = "";
   for (const word of words) {
@@ -794,7 +1413,7 @@ function buildFullDescription(item: ProformaItem): string {
   if (item.shopAddress) {
     parts.push(`,ADDRESS:${item.shopAddress}`);
   }
-  return parts.join("");
+  return toWinAnsiSafe(parts.join(""));
 }
 
 /* ------------------------------------------------------------------ */
@@ -822,7 +1441,7 @@ export async function generateProformaInvoicePdf(
     isBold = false,
     color = black,
   ) => {
-    const t = String(str ?? "");
+    const t = toWinAnsiSafe(String(str ?? ""));
     if (!t) return;
     page.drawText(t, {
       x,
@@ -864,13 +1483,12 @@ export async function generateProformaInvoicePdf(
   y -= 22;
 
   /* ================================================================
-     SHIPPER (left)  |  INVOICE NO / DATE / EXPORTER'S REF / AWB / PCS (right)
+     SHIPPER (left)  |  INVOICE NO / DATE / EXPORTER'S REF / AWB / PCS
      ================================================================ */
   const topBlockH = 95;
   const leftColW = 310;
   const rightColW = contentW - leftColW;
 
-  // Shipper box
   rect(margin, y - topBlockH, leftColW, topBlockH);
   text("SHIPPER :", margin + 4, y - 12, 8, true);
   text(data.shipperName || "", margin + 4, y - 24, 9, true);
@@ -899,10 +1517,7 @@ export async function generateProformaInvoicePdf(
     text(`PH : ${data.shipperPhone}`, margin + 4, shipY - 2, 8);
   }
 
-  // Right header boxes
   const rh = topBlockH / 2;
-
-  // Row 1: Invoice No | Date | Exporter's Ref
   const r1w1 = rightColW * 0.38;
   const r1w2 = rightColW * 0.32;
   const r1w3 = rightColW - r1w1 - r1w2;
@@ -925,7 +1540,6 @@ export async function generateProformaInvoicePdf(
     true,
   );
 
-  // Row 2: AWB No | PCS
   rect(margin + leftColW, y - topBlockH, r1w1 + r1w2, rh);
   text("AWB NO :", margin + leftColW + 4, y - rh - 12, 7, true);
   text(data.awb, margin + leftColW + 4, y - rh - 28, 10, true);
@@ -976,7 +1590,6 @@ export async function generateProformaInvoicePdf(
     text(`PH : ${data.consigneePhone}`, margin + 4, consY - 2, 8);
   }
 
-  // Weight box
   rect(margin + consigneeW, y - consigneeH, weightW, consigneeH);
   text("WEIGHT :", margin + consigneeW + 6, y - 14, 8, true);
   if (data.actualWeight != null) {
@@ -996,7 +1609,6 @@ export async function generateProformaInvoicePdf(
      ================================================================ */
   const routeH = 28;
 
-  // Row: PRE-CARRIAGE BY | PORT OF RECEIPT | OTHER REFERENCE
   const rw1 = contentW * 0.28;
   const rw2 = contentW * 0.28;
   const rw3 = contentW - rw1 - rw2;
@@ -1020,7 +1632,6 @@ export async function generateProformaInvoicePdf(
 
   y -= routeH;
 
-  // Row: VESSEL/FLIGHT | PLACE OF LOADING | COUNTRY OF ORIGIN | COUNTRY OF DESTINATION
   const r2w1 = contentW * 0.22;
   const r2w2 = contentW * 0.28;
   const r2w3 = contentW * 0.25;
@@ -1068,7 +1679,6 @@ export async function generateProformaInvoicePdf(
 
   y -= routeH;
 
-  // Row: PORT OF DISCHARGE | FINAL DESTINATION | TERM OF DELIVERY
   const r3w1 = contentW * 0.28;
   const r3w2 = contentW * 0.36;
   const r3w3 = contentW - r3w1 - r3w2;
@@ -1130,7 +1740,6 @@ export async function generateProformaInvoicePdf(
   text("RATE", col.rate, y - 13, 7, true);
   text("AMT", col.amt, y - 13, 7, true);
 
-  // vertical lines for header
   const vLines = [col.box, col.desc, col.weight, col.hs, col.qty, col.rate, col.amt];
   vLines.forEach((x) => {
     page.drawLine({
@@ -1154,7 +1763,6 @@ export async function generateProformaInvoicePdf(
     const descLines = wrapText(fullDesc, 42);
     const rowH = Math.max(minRowH, descLines.length * 10 + 10);
 
-    // alternate background
     if (idx % 2 === 1) {
       page.drawRectangle({
         x: margin,
@@ -1165,10 +1773,8 @@ export async function generateProformaInvoicePdf(
       });
     }
 
-    // border
     rect(margin, y - rowH, contentW, rowH, 0.5);
 
-    // vertical lines
     vLines.forEach((x) => {
       page.drawLine({
         start: { x, y },
@@ -1209,7 +1815,6 @@ export async function generateProformaInvoicePdf(
     y -= rowH;
   });
 
-  // empty rows if few items (keeps table height similar to sample)
   const emptyRows = Math.max(0, 4 - items.length);
   for (let i = 0; i < emptyRows; i++) {
     rect(margin, y - minRowH, contentW, minRowH, 0.5);
@@ -1245,7 +1850,7 @@ export async function generateProformaInvoicePdf(
      ================================================================ */
   text("AMOUNT IN WORDS :", margin, y, 8, true);
   const words =
-    numberToWords(data.totalAmount) ||
+    toWinAnsiSafe(numberToWords(data.totalAmount) || "") ||
     `INR ${Number(data.totalAmount || 0).toFixed(2)} Only`;
   text(words, margin + 105, y, 8);
 
@@ -1269,28 +1874,11 @@ export async function generateProformaInvoicePdf(
   });
 
   rect(margin + declW, y - declH, signW, declH);
-  text(
-    "This is system generated",
-    margin + declW + 8,
-    y - 16,
-    7,
-  );
-  text(
-    "invoice does not require",
-    margin + declW + 8,
-    y - 28,
-    7,
-  );
+  text("This is system generated", margin + declW + 8, y - 16, 7);
+  text("invoice does not require", margin + declW + 8, y - 28, 7);
   text("signature.", margin + declW + 8, y - 40, 7);
-  text(
-    "AUTHORIZED SIGNATORY",
-    margin + declW + 8,
-    y - 52,
-    8,
-    true,
-  );
+  text("AUTHORIZED SIGNATORY", margin + declW + 8, y - 52, 8, true);
 
-  /* ---------- FOOTER ---------- */
   text(
     `Sreshta Logistics  •  System Generated Proforma  •  ${new Date().toLocaleString("en-IN")}`,
     margin,
